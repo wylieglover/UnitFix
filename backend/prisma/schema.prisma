@@ -1,0 +1,209 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [citext]
+}
+
+// Enums at the top
+enum UserType {
+  org_owner
+  org_admin
+  staff
+  tenant
+}
+
+enum MaintenanceRole {
+  manager
+  member
+}
+
+enum MaintenanceStatus {
+  open
+  in_progress
+  completed
+  cancelled
+}
+
+enum MaintenancePriority {
+  low
+  medium
+  high
+  urgent
+}
+
+// Models
+model User {
+  id           Int      @id @default(autoincrement())
+  opaqueId     String   @unique @default(dbgenerated("gen_random_uuid()"))
+  name         String
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String   @map("password_hash")
+  userType     UserType @map("user_type")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  orgAdmin         OrgAdmin?
+  propertyStaff    PropertyStaff[]
+  tenant           Tenant?
+  sessions         Session[]
+  createdRequests  MaintenanceRequest[] @relation("CreatedRequests")
+  assignedRequests MaintenanceRequest[] @relation("AssignedRequests")
+
+  @@map("users")
+}
+
+model Organization {
+  id          Int      @id @default(autoincrement())
+  opaqueId    String   @unique @default(dbgenerated("gen_random_uuid()"))
+  name        String   @unique @db.Citext
+  contactInfo String   @map("contact_info") @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  admins     OrgAdmin[]
+  properties Property[]
+  invites    Invite[]
+
+  @@map("organizations")
+}
+
+model OrgAdmin {
+  id             Int          @id @default(autoincrement())
+  userId         Int          @unique @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId Int          @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  archivedAt     DateTime?    @map("archived_at")
+
+  @@map("org_admins")
+}
+
+model Property {
+  id                     Int          @id @default(autoincrement())
+  opaqueId               String       @unique @default(dbgenerated("gen_random_uuid()"))
+  organizationId         Int          @map("organization_id")
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name                   String
+  street                 String
+  city                   String
+  state                  String?
+  zip                    String
+  country                String       @default("USA")
+  maintenancePhoneNumber String?      @unique @map("maintenance_phone_number")
+  twilioSid              String?      @unique @map("twilio_sid")
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
+  archivedAt             DateTime?    @map("archived_at")
+
+  staff               PropertyStaff[]
+  tenants             Tenant[]
+  invites             Invite[]
+  maintenanceRequests MaintenanceRequest[]
+
+  @@map("properties")
+}
+
+model PropertyStaff {
+  id         Int             @id @default(autoincrement())
+  userId     Int             @map("user_id")
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId Int             @map("property_id")
+  property   Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  role       MaintenanceRole
+  createdAt  DateTime        @default(now()) @map("created_at")
+  archivedAt DateTime?       @map("archived_at")
+
+  @@unique([userId, propertyId])
+  @@index([userId])
+  @@map("property_staff")
+}
+
+model Tenant {
+  id         Int       @id @default(autoincrement())
+  userId     Int       @unique @map("user_id")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId Int       @map("property_id")
+  property   Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitNumber String?   @map("unit_number")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@unique([userId, propertyId])
+  @@index([userId])
+  @@map("tenants")
+}
+
+model MaintenanceRequest {
+  id          Int                 @id @default(autoincrement())
+  opaqueId    String              @unique @default(dbgenerated("gen_random_uuid()"))
+  code        String              @map("code")
+  propertyId  Int                 @map("property_id")
+  property    Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdBy   Int                 @map("created_by")
+  creator     User                @relation("CreatedRequests", fields: [createdBy], references: [id])
+  assignedTo  Int?                @map("assigned_to")
+  assignee    User?               @relation("AssignedRequests", fields: [assignedTo], references: [id])
+  assignedAt  DateTime?           @map("assigned_at")
+  unitNumber  String?             @map("unit_number")
+  description String              @db.Text
+  status      MaintenanceStatus   @default(open)
+  priority    MaintenancePriority @default(medium)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  completedAt DateTime?           @map("completed_at")
+  cancelledAt DateTime?           @map("cancelled_at")
+  archivedAt  DateTime?           @map("archived_at")
+
+  @@unique([propertyId, code])
+  @@index([propertyId])
+  @@index([status])
+  @@index([createdBy])
+  @@index([assignedTo])
+  @@index([code])
+  @@map("maintenance_requests")
+}
+
+model Invite {
+  id              Int              @id @default(autoincrement())
+  email           String?          @db.Citext
+  phone           String?
+  role            UserType
+  organizationId  Int
+  propertyId      Int?
+  maintenanceRole MaintenanceRole? @map("maintenance_role")
+  unitNumber      String?          @map("unit_number")
+  token           String           @unique
+  expiresAt       DateTime         @map("expires_at")
+  acceptedAt      DateTime?        @map("accepted_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  createdBy       Int              @map("created_by")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property?    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([phone])
+  @@index([token])
+  @@map("invites")
+}
+
+model Session {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String   @map("refresh_token_hash")
+  userAgent        String?  @map("user_agent") @db.VarChar(500)
+  ipAddress        String?  @map("ip_address") @db.VarChar(45)
+  expiresAt        DateTime @map("expires_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
