@@ -17,7 +17,7 @@ let server: http.Server;
 
 app.use(
   cors({
-    origin: `${env.FRONTEND_URL}:5173`,
+    origin: env.FRONTEND_URL,
     credentials: true,
   })
 );
@@ -35,7 +35,7 @@ const startServer = async () => {
   process.on("SIGINT", shutdownServer);
   process.on("SIGTERM", shutdownServer);
 
-  server = app.listen(env.PORT, () => {
+  server = app.listen(Number(env.PORT), '0.0.0.0', () => {
     console.log(`UnitFix listening on port ${env.PORT}`);
   });
 };
