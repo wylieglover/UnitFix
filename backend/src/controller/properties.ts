@@ -1,4 +1,5 @@
 import { asyncHandler } from "../helpers/asyncHandler";
+import { TokenPayload } from "../helpers/token";
 import { formatProperty, propertySelect } from "../helpers/propertyHelpers";
 import { prisma } from "../lib/prisma";
 import { twilioService } from "../services/twilio";
@@ -26,18 +27,28 @@ export const createProperty = asyncHandler(async (req, res, next) => {
 });
 
 export const listProperties = asyncHandler(async (req, res, next) => {
-  const { organization } = res.locals;
+  const { organization, user } = res.locals;
   const { status } = res.locals.query;
+  const { userId, userType } = user as TokenPayload;
+
+  const whereClause: any = {
+    organizationId: organization.id,
+    ...(status === "archived"
+      ? { archivedAt: { not: null } }
+      : status === "all"
+        ? {}
+        : { archivedAt: null }),
+  };
+
+  // If staff, only show properties they're assigned to
+  if (userType === "staff") {
+    whereClause.staff = {
+      some: { userId }
+    };
+  }
 
   const properties = await prisma.property.findMany({
-    where: {
-      organizationId: organization.id,
-      ...(status === "archived"
-        ? { archivedAt: { not: null } }
-        : status === "all"
-          ? {}
-          : { archivedAt: null }),
-    },
+    where: whereClause,
     select: propertySelect,
   });
 

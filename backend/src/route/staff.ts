@@ -3,15 +3,27 @@ import express from "express";
 import { validate } from "../middleware/validate";
 import { authorize } from "../middleware/authorize";
 import { resolveUser } from "../middleware/resolveUser";
-import { listStaff, getStaff, updateStaff } from "../controller/staff";
+import { listStaff, getStaff, updateStaff, assignStaffToProperty } from "../controller/staff";
 import {
   staffByPropertyIdParamsSchema,
   staffByIdParamsSchema,
   updateStaffBodySchema,
   staffQuerySchema,
+  assignStaffBodySchema,
+  assignStaffParamsSchema
 } from "../schema/staff";
 
 const staffRouter = express.Router({ mergeParams: true });
+
+staffRouter.post(
+  "/assign",
+  validate({ 
+    params: assignStaffParamsSchema,
+    body: assignStaffBodySchema 
+  }),
+  authorize({ orgRoles: ["org_owner", "org_admin"] }),
+  assignStaffToProperty
+);
 
 staffRouter.get(
   "/",

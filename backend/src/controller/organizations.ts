@@ -6,6 +6,7 @@ import { TokenPayload } from "../helpers/token";
 import { createSessionAndTokens } from "../helpers/authHelpers";
 import { formatUser } from "../helpers/userHelpers";
 import { formatOrganization } from "../helpers/organizationHelpers";
+import { formatTenant } from "../helpers/tenantHelpers";
 
 export const register = asyncHandler(async (req, res, next) => {
   const { organizationName, contactInfo, name, email, password } = res.locals.body;
@@ -73,9 +74,10 @@ export const register = asyncHandler(async (req, res, next) => {
 
   // Create session and tokens
   const tokenPayload: TokenPayload = {
-    userId: user.id,
+    userId: user.id,                           
     userType: "org_owner",
-    organizationId: organization.id,
+    organizationId: organization.id,            
+    organizationOpaqueId: organization.opaqueId, 
   };
 
   const { accessToken } = await createSessionAndTokens(tokenPayload, req, res);
@@ -85,5 +87,135 @@ export const register = asyncHandler(async (req, res, next) => {
     accessToken,
     organization: formatOrganization(organization),
     user: formatUser(user),
+  });
+});
+
+export const getDashboard = asyncHandler(async (req, res, next) => {
+  const { organization } = res.locals;
+
+  // Get all stats in parallel
+  const [
+    propertyCount,
+    staffCount,
+    tenantCount,
+    openRequestCount,
+    inProgressRequestCount,
+    completedRequestCount,
+  ] = await Promise.all([
+    // Count active properties
+    prisma.property.count({
+      where: {
+        organizationId: organization.id,
+        archivedAt: null,
+      },
+    }),
+
+    // Count active staff across all properties
+    prisma.propertyStaff.count({
+      where: {
+        property: {
+          organizationId: organization.id,
+        },
+        archivedAt: null,
+      },
+    }),
+
+    // Count active tenants across all properties
+    prisma.tenant.count({
+      where: {
+        property: {
+          organizationId: organization.id,
+        },
+        archivedAt: null,
+      },
+    }),
+
+    // Count open requests
+    prisma.maintenanceRequest.count({
+      where: {
+        property: {
+          organizationId: organization.id,
+        },
+        status: "open",
+        archivedAt: null,
+      },
+    }),
+
+    // Count in-progress requests
+    prisma.maintenanceRequest.count({
+      where: {
+        property: {
+          organizationId: organization.id,
+        },
+        status: "in_progress",
+        archivedAt: null,
+      },
+    }),
+
+    // Count completed requests
+    prisma.maintenanceRequest.count({
+      where: {
+        property: {
+          organizationId: organization.id,
+        },
+        status: "completed",
+        archivedAt: null,
+      },
+    }),
+  ]);
+
+  return res.status(200).json({
+    organization: {
+      id: organization.opaqueId,
+      name: organization.name,
+    },
+    stats: {
+      properties: propertyCount,
+      staff: staffCount,
+      tenants: tenantCount,
+      requests: {
+        open: openRequestCount,
+        inProgress: inProgressRequestCount,
+        completed: completedRequestCount,
+        total: openRequestCount + inProgressRequestCount + completedRequestCount,
+      },
+    },
+  });
+});
+
+export const getTenants = asyncHandler(async (req, res) => {
+  const { organization } = res.locals;
+
+  const tenants = await prisma.tenant.findMany({
+    where: {
+      property: {
+        organizationId: organization.id,
+      },
+      archivedAt: null,
+    },
+    include: {
+      user: {
+        select: {
+          opaqueId: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+      property: {
+        select: {
+          name: true,
+          opaqueId: true,
+        },
+      },
+    },
+    orderBy: [
+      { property: { name: 'asc' } },
+      { unitNumber: 'asc' }
+    ],
+  });
+
+  return res.status(200).json({
+    tenants: tenants.map(formatTenant),
   });
 });

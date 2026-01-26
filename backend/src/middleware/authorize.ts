@@ -50,27 +50,43 @@ export const authorize = (options: AuthorizeOptions = {}): RequestHandler => {
 
     // Property staff access
     if (userType === "staff") {
+      // Check if staff are allowed at all
       if (!options.property?.allowStaff) {
         return res.status(403).json({ error: "Staff access not permitted for this resource" });
       }
 
-      if (!propertyId) {
-        return res.status(400).json({ error: "Property context required" });
-      }
+      // If propertyId exists in route, verify access to that specific property
+      if (propertyId) {
+        const assignment = await prisma.propertyStaff.findUnique({
+          where: { userId_propertyId: { userId, propertyId } },
+        });
 
-      const assignment = await prisma.propertyStaff.findUnique({
-        where: { userId_propertyId: { userId, propertyId } },
-      });
+        if (!assignment) {
+          return res.status(403).json({ error: "Access denied to this property" });
+        }
 
-      if (!assignment) {
-        return res.status(403).json({ error: "Access denied to this property" });
-      }
+        if (
+          options.property.maintenanceRoles &&
+          !options.property.maintenanceRoles.includes(assignment.role)
+        ) {
+          return res.status(403).json({ error: "Insufficient permissions for this action" });
+        }
+      } else {
+        // No propertyId in route - verify staff belongs to org
+        if (!organizationId) {
+          return res.status(400).json({ error: "Organization context required" });
+        }
 
-      if (
-        options.property.maintenanceRoles &&
-        !options.property.maintenanceRoles.includes(assignment.role)
-      ) {
-        return res.status(403).json({ error: "Insufficient permissions for this action" });
+        const staffAssignment = await prisma.propertyStaff.findFirst({
+          where: { 
+            userId,
+            property: { organizationId }
+          },
+        });
+
+        if (!staffAssignment) {
+          return res.status(403).json({ error: "Access denied to this organization" });
+        }
       }
     }
 

@@ -12,6 +12,7 @@ import {
   validateInvite,
   formatInvite,
   createRoleRelationship,
+  formatInviteBatchItem
 } from "../helpers/inviteHelpers";
 import { formatProperty } from "../helpers/propertyHelpers";
 import { formatOrganization } from "../helpers/organizationHelpers";
@@ -27,14 +28,16 @@ export const sendInvite = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: "Organization context required" });
   }
 
-  // Validate delivery data exists
   if (sendEmail && !email) {
     return res.status(400).json({ error: "Email required when email=true" });
   }
 
   if (sendPhone && !phone) {
-    return res.status(400).json({ error: "Phone required when phone=true" });
+    return res.status(400).json({ error: "Cannot send via phone - no phone number provided" });
   }
+
+  const actualSendEmail = sendEmail !== false; // Default true
+  const actualSendPhone = sendPhone === true && !!phone; // Only true if explicitly requested AND phone exists
 
   // Validate property ownership if applicable
   let internalPropertyId: number | undefined;
@@ -54,7 +57,7 @@ export const sendInvite = asyncHandler(async (req, res) => {
   // Check for existing users
   if (email) {
     const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
+    if (existingUser && existingUser.userType === "tenant") {
       return res.status(409).json({ error: "User with this email already exists" });
     }
   }
@@ -101,18 +104,104 @@ export const sendInvite = asyncHandler(async (req, res) => {
   // Send delivery
   Events.publish(UserEvents.INVITE_CREATED, {
     inviteId: invite.id,
-    sendEmail: !!sendEmail,
-    sendPhone: !!sendPhone,
+    sendEmail: actualSendEmail,
+    sendPhone: actualSendPhone,
   });
 
   return res.status(201).json({
     message: "Invite sent",
     delivery: {
-      email: sendEmail || false,
-      phone: sendPhone || false,
+      email: actualSendEmail,
+      phone: actualSendPhone,
     },
     invite: formatInviteMinimal(invite),
   });
+});
+
+export const bulkSendInvites = asyncHandler(async (req, res) => {
+  const { email: sendEmail, phone: sendPhone } = res.locals.query;
+  const { role, propertyId, maintenanceRole, invites } = res.locals.body;
+  const { organizationId, userId } = res.locals.user as TokenPayload;
+
+  const actualSendEmail = sendEmail !== false;
+  const actualSendPhone = sendPhone === true;
+
+  // 1. Validate Property
+  const property = await prisma.property.findUnique({
+    where: { opaqueId: propertyId },
+    select: { id: true, organizationId: true },
+  });
+
+  if (!property || property.organizationId !== organizationId) {
+    return res.status(404).json({ error: "Property context not found" });
+  }
+
+  const results = {
+    total: invites.length,
+    successful: 0,
+    failed: 0,
+    errors: [] as { email: string; error: string }[],
+    invites: [] as any[],
+  };
+
+  // 2. Process Invites
+  // We use a loop instead of Promise.all to prevent database lock contention 
+  // and to manage individual error states easily.
+  for (const item of invites) {
+    try {
+      // Check for existing user
+      const existingUser = await prisma.user.findUnique({ where: { email: item.email } });
+      if (existingUser) {
+        throw new Error(`User with email ${item.email} already exists`);
+      }
+
+      // Check for pending invite
+      const existingInvite = await prisma.invite.findFirst({
+        where: { email: item.email, organizationId, acceptedAt: null },
+      });
+      if (existingInvite) {
+        throw new Error("A pending invite already exists for this email");
+      }
+
+      // Create Invite
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+
+      const invite = await prisma.invite.create({
+        data: {
+          email: item.email,
+          phone: item.phone ?? null,
+          role,
+          token,
+          expiresAt,
+          organizationId,
+          propertyId: property.id,
+          maintenanceRole: maintenanceRole ?? null,
+          unitNumber: item.unitNumber ?? null,
+          createdBy: userId!,
+        }
+      });
+
+      // Publish Event for Delivery
+      Events.publish(UserEvents.INVITE_CREATED, {
+        inviteId: invite.id,
+        sendEmail: actualSendEmail,
+        sendPhone: actualSendPhone,
+      });
+
+      results.successful++;
+      results.invites.push(formatInviteBatchItem(invite));
+    } catch (err: any) {
+      results.failed++;
+      results.errors.push({
+        email: item.email,
+        error: err.message || "Failed to process invite",
+      });
+    }
+  }
+  
+  const status = results.failed > 0 ? 207 : 201;
+  return res.status(status).json(results);
 });
 
 export const getInviteDetails = asyncHandler(async (req, res, next) => {
@@ -148,7 +237,6 @@ export const acceptInvite = asyncHandler(async (req, res) => {
     return res.status(invite ? 400 : 404).json({ error: validation.error });
   }
 
-  // Determine unique identity
   if (!invite.email && !invite.phone) {
     return res.status(500).json({ error: "Invite has no delivery identity" });
   }
@@ -163,7 +251,7 @@ export const acceptInvite = asyncHandler(async (req, res) => {
     }
   }
 
-  // Check for existing users - build OR conditions properly
+  // Check for existing users
   const existingUserConditions: Prisma.UserWhereInput[] = [];
 
   if (invite.email) {
@@ -178,60 +266,182 @@ export const acceptInvite = asyncHandler(async (req, res) => {
     where: {
       OR: existingUserConditions,
     },
+    select: {
+      id: true,
+      opaqueId: true,
+      name: true,
+      email: true,
+      phone: true,
+      userType: true,
+    }
   });
 
+  // ✅ Validate required fields for NEW users
+  if (!existingUser) {
+    if (!name) {
+      return res.status(400).json({
+        error: "Name is required for new user registration",
+      });
+    }
+    if (!password) {
+      return res.status(400).json({
+        error: "Password is required for new user registration",
+      });
+    }
+  }
+
+  let user: typeof existingUser;
+
+  // ✅ If user exists, validate and add the new role relationship
   if (existingUser) {
-    return res.status(409).json({
-      error: "User with this email or phone already exists",
+    // Validate user type matches invite
+    if (existingUser.userType !== invite.role) {
+      return res.status(400).json({
+        error: `This user is already registered as ${existingUser.userType}, cannot accept ${invite.role} invite`,
+      });
+    }
+
+    // For STAFF: Check if already assigned to this property
+    if (invite.role === "staff" && invite.propertyId) {
+      const existingAssignment = await prisma.propertyStaff.findUnique({
+        where: {
+          userId_propertyId: {
+            userId: existingUser.id,
+            propertyId: invite.propertyId,
+          },
+        },
+      });
+
+      if (existingAssignment) {
+        return res.status(409).json({
+          error: "Staff member is already assigned to this property",
+        });
+      }
+    }
+
+    // For TENANT: Cannot accept another invite (one property only)
+    if (invite.role === "tenant") {
+      const existingTenant = await prisma.tenant.findUnique({
+        where: { userId: existingUser.id },
+      });
+
+      if (existingTenant) {
+        return res.status(409).json({
+          error: "User is already registered as a tenant at another property",
+        });
+      }
+    }
+
+    // For ORG_ADMIN: Cannot accept another invite (one org only)
+    if (invite.role === "org_admin") {
+      const existingAdmin = await prisma.orgAdmin.findUnique({
+        where: { userId: existingUser.id },
+      });
+
+      if (existingAdmin) {
+        return res.status(409).json({
+          error: "User is already registered as an admin for another organization",
+        });
+      }
+    }
+
+    // Add the new role relationship
+    await prisma.$transaction(async (tx) => {
+      await createRoleRelationship(tx, existingUser.id, invite, unitNumber);
+
+      await tx.invite.update({
+        where: { id: invite.id },
+        data: { acceptedAt: new Date() },
+      });
+    });
+
+    user = existingUser;
+  } else {
+    // ✅ New user flow
+    const passwordHash = await bcrypt.hash(password!, 10);
+
+    user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name: name!,
+          email: invite.email ?? null,
+          phone: invite.phone ?? null,
+          passwordHash,
+          userType: invite.role,
+        },
+        select: {
+          id: true,
+          opaqueId: true,
+          name: true,
+          email: true,
+          phone: true,
+          userType: true,
+        },
+      });
+
+      await createRoleRelationship(tx, newUser.id, invite, unitNumber);
+
+      await tx.invite.update({
+        where: { id: invite.id },
+        data: { acceptedAt: new Date() },
+      });
+
+      return newUser;
     });
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
-
-  const user = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        name,
-        email: invite.email ?? null,
-        phone: invite.phone ?? null,
-        passwordHash,
-        userType: invite.role,
-      },
-      select: {
-        id: true,
-        opaqueId: true,
-        name: true,
-        email: true,
-        phone: true,
-        userType: true,
-      },
-    });
-
-    await createRoleRelationship(tx, user.id, invite, unitNumber);
-
-    await tx.invite.update({
-      where: { id: invite.id },
-      data: { acceptedAt: new Date() },
-    });
-
-    return user;
-  });
-
-  // Create session and tokens
+  // Build token payload
   const tokenPayload: TokenPayload = {
     userId: user.id,
     userType: invite.role,
-    ...(invite.organizationId && { organizationId: invite.organizationId }),
-    ...(invite.propertyId && { propertyId: invite.propertyId }),
+    ...(invite.organizationId && { 
+      organizationId: invite.organizationId
+    }),
+    ...(invite.organization?.opaqueId && {
+      organizationOpaqueId: invite.organization.opaqueId
+    }),
   };
+
+  // Only add propertyId for tenants
+  if (invite.role === "tenant") {
+    if (invite.propertyId) {
+      tokenPayload.propertyId = invite.propertyId;
+    }
+    if (invite.property?.opaqueId) {
+      tokenPayload.propertyOpaqueId = invite.property.opaqueId;
+    }
+  }
+
+  // For staff, fetch ALL their properties
+  let staffProperties = null;
+  if (invite.role === "staff") {
+    const assignments = await prisma.propertyStaff.findMany({
+      where: { userId: user.id },
+      select: {
+        property: {
+          select: {
+            opaqueId: true,
+            name: true,
+          }
+        }
+      }
+    });
+    staffProperties = assignments.map(a => ({
+      id: a.property.opaqueId,
+      name: a.property.name,
+    }));
+  }
 
   const { accessToken } = await createSessionAndTokens(tokenPayload, req, res);
 
   return res.status(201).json({
-    message: "Invite accepted successfully",
+    message: existingUser 
+      ? "Property assignment added successfully" 
+      : "Invite accepted successfully",
     accessToken,
     user: formatUser(user),
     organization: invite.organization ? formatOrganization(invite.organization) : null,
     property: invite.property ? formatProperty(invite.property) : null,
+    ...(staffProperties && { properties: staffProperties }),
   });
 });

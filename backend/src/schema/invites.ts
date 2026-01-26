@@ -51,7 +51,7 @@ export const sendInviteBodySchema = z
   .object({
     role: z.enum(["org_admin", "staff", "tenant"]),
 
-    email: z.string().trim().toLowerCase().pipe(z.email()),
+    email,
     phone: phone.optional(),
 
     propertyId: propertyId.optional(),
@@ -94,6 +94,13 @@ export const sendInviteBodySchema = z
         });
       }
 
+      if (!unitNumber) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Tenant invite requires unitNumber",
+        });
+      }
+
       if (maintenanceRole) {
         ctx.addIssue({
           code: "custom",
@@ -101,14 +108,71 @@ export const sendInviteBodySchema = z
         });
       }
     }
-  });
+});
+
+const bulkInviteItemSchema = z.object({
+  email: email,
+  phone: phone.optional(),
+  unitNumber: unitNumber.optional(), // Optional here because staff don't have units
+});
+
+export const bulkSendInviteBodySchema = z.object({
+  role: z.enum(["org_admin", "staff", "tenant"]), 
+  propertyId: propertyId.optional(), // Now optional at top level
+  maintenanceRole: z.enum(["manager", "member"]).optional(),
+  invites: z.array(bulkInviteItemSchema)
+    .min(1, "At least one invite is required")
+    .max(100, "Maximum 100 invites per batch"),
+}).superRefine((body, ctx) => {
+  const { role, propertyId, maintenanceRole, invites } = body;
+
+  // 1. Org Admin Rules: No property, no maintenance role, no units
+  if (role === "org_admin") {
+    if (propertyId || maintenanceRole) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Org Admin invites cannot have a property or maintenance role",
+      });
+    }
+    invites.forEach((inv, i) => {
+      if (inv.unitNumber) {
+        ctx.addIssue({ code: "custom", path: ["invites", i, "unitNumber"], message: "Org Admins don't have units" });
+      }
+    });
+  }
+
+  // 2. Staff Rules: Needs property + maintenance role. No units.
+  if (role === "staff") {
+    if (!propertyId || !maintenanceRole) {
+      ctx.addIssue({ code: "custom", message: "Staff invites require a property and maintenance role" });
+    }
+    invites.forEach((inv, i) => {
+      if (inv.unitNumber) {
+        ctx.addIssue({ code: "custom", path: ["invites", i, "unitNumber"], message: "Staff don't have units" });
+      }
+    });
+  }
+
+  // 3. Tenant Rules: Needs property + unit numbers. No maintenance role.
+  if (role === "tenant") {
+    if (!propertyId || maintenanceRole) {
+      ctx.addIssue({ code: "custom", message: "Tenant invites require a property and no maintenance role" });
+    }
+    invites.forEach((inv, i) => {
+      if (!inv.unitNumber) {
+        ctx.addIssue({ code: "custom", path: ["invites", i, "unitNumber"], message: "Unit number is required for tenants" });
+      }
+    });
+  }
+});
 
 export const inviteParamsSchema = z.strictObject({
   token,
 });
 
-export const acceptInviteBodySchema = z.strictObject({
-  name,
-  password: passwordWithRequirements,
-  unitNumber: unitNumber.optional(),
+export const acceptInviteBodySchema = z.object({
+  name: name.optional(),              // Required for new users, not for existing
+  password: passwordWithRequirements.optional(), // Required for new users, not for existing
+  phone: phone.optional(),            // Always optional
+  unitNumber: unitNumber.optional(),  // Override invite's unit if needed
 });

@@ -12,6 +12,12 @@ export const tenantSelect = {
       phone: true,
     },
   },
+  property: {
+    select: {
+      opaqueId: true,
+      name: true,
+    }
+  }
 } as const;
 
 type TenantWithSelect = Prisma.TenantGetPayload<{
@@ -29,6 +35,10 @@ export const formatTenant = (tenant: TenantWithSelect) => ({
     email: tenant.user.email,
     phone: tenant.user.phone,
   },
+  property: {
+    id: tenant.property.opaqueId,
+    name: tenant.property.name,
+  }
 });
 
 export type FormattedTenant = ReturnType<typeof formatTenant>;

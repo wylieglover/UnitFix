@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma";
 export const resolveProperty = asyncHandler(async (req, res, next) => {
   const { propertyId } = res.locals.params;
   const { organization } = res.locals;
-
+  
   const property = await prisma.property.findUnique({
     where: { opaqueId: propertyId },
   });

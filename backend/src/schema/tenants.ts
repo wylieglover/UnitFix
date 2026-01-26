@@ -9,7 +9,7 @@ const archived = z.boolean();
 
 export const tenantsByPropertyIdParamsSchema = z.strictObject({
   organizationId,
-  propertyId,
+  propertyId: propertyId.optional(),
 });
 
 export const tenantByIdParamsSchema = z.strictObject({

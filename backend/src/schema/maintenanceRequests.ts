@@ -39,6 +39,7 @@ export const listMaintenanceRequestsQuerySchema = z.object({
   priority: priority.optional(),
   assignedTo: assignedTo.optional(),
   createdBy: assignedTo.optional(),
+  archived: z.enum(["active", "archived", "all"]).default("active"),
 });
 
 /* ------------------ Get Single Request ------------------ */

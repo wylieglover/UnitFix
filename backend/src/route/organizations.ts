@@ -3,8 +3,9 @@ import express from "express";
 import { propertiesRouter } from "./properties";
 import { validate } from "../middleware/validate";
 import { organizationRegistrationSchema, organizationIdParamSchema } from "../schema/organizations";
-import { register } from "../controller/organizations";
+import { register, getDashboard } from "../controller/organizations";
 import { authenticate } from "../middleware/authenticate";
+import { authorize } from "../middleware/authorize";
 import { resolveOrganization } from "../middleware/resolveOrganization";
 
 const organizationsRouter = express.Router();
@@ -16,6 +17,12 @@ organizationsRouter.use(
   validate({ params: organizationIdParamSchema }),
   authenticate,
   resolveOrganization
+);
+
+organizationsRouter.get(
+  "/:organizationId/dashboard",
+  authorize({ orgRoles: ["org_owner", "org_admin"] }),
+  getDashboard
 );
 
 organizationsRouter.use("/:organizationId/properties", propertiesRouter);

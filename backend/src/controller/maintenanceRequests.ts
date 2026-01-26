@@ -67,6 +67,7 @@ export const createMaintenanceRequest = asyncHandler(async (req, res, next) => {
     include: {
       creator: true,
       assignee: true,
+      property: true
     },
   });
 
@@ -82,67 +83,75 @@ export const createMaintenanceRequest = asyncHandler(async (req, res, next) => {
 });
 
 export const listMaintenanceRequests = asyncHandler(async (req, res, next) => {
-  const { property } = res.locals;
+  const { property, organization } = res.locals;
   const { userId, userType } = res.locals.user as TokenPayload;
-  const { status, priority, assignedTo, createdBy } = res.locals.query;
+  const { status, priority, assignedTo, createdBy, archived } = res.locals.query;
 
-  // Build where clause
-  const where: any = {
-    propertyId: property.id,
-  };
+  // Base filter
+  const where: any = property 
+    ? { propertyId: property.id }
+    : { property: { organizationId: organization.id } };
 
-  // Status filter
-  if (status === "open") {
-    where.status = "open";
-    where.archivedAt = null;
-  } else if (status === "in_progress") {
-    where.status = "in_progress";
-    where.archivedAt = null;
-  } else if (status === "completed") {
-    where.status = "completed";
-    where.archivedAt = null;
-  } else if (status === "cancelled") {
-    where.status = "cancelled";
-    where.archivedAt = null;
-  } else if (status === "all") {
+  // Status Filter
+  if (status && status !== "all") {
+    where.status = status;
+  }
+
+  // Archive Filter (Supports 'active', 'archived', 'all')
+  if (archived === "archived") {
+    where.archivedAt = { not: null };
+  } else if (archived === "all") {
+    // Do nothing, show both
+  } else {
+    // Default to 'active'
     where.archivedAt = null;
   }
 
-  // Priority filter
+  // Priority Filter
   if (priority) {
     where.priority = priority;
   }
 
-  // AssignedTo filter
+  // OpaqueID resolution
   if (assignedTo) {
-    const assignedUser = await prisma.user.findUnique({
-      where: { opaqueId: assignedTo },
-      select: { id: true },
-    });
-    if (assignedUser) {
-      where.assignedTo = assignedUser.id;
-    }
+    const user = await prisma.user.findUnique({ where: { opaqueId: assignedTo }, select: { id: true } });
+    if (user) where.assignedTo = user.id;
   }
 
-  // CreatedBy filter
   if (createdBy) {
-    const creatorUser = await prisma.user.findUnique({
-      where: { opaqueId: createdBy },
-      select: { id: true },
-    });
-    if (creatorUser) {
-      where.createdBy = creatorUser.id;
-    }
+    const user = await prisma.user.findUnique({ where: { opaqueId: createdBy }, select: { id: true } });
+    if (user) where.createdBy = user.id;
   }
 
-  // Tenants can only see their own requests
+  // ✅ SECURITY: Tenants can only see their own requests
   if (userType === "tenant") {
     where.createdBy = userId;
   }
 
+  // ✅ ADD THIS: Staff can only see requests from their assigned properties
+  if (userType === "staff" && !property) {
+    // Get all property IDs the staff is assigned to
+    const staffAssignments = await prisma.propertyStaff.findMany({
+      where: { userId },
+      select: { propertyId: true }
+    });
+    
+    const allowedPropertyIds = staffAssignments.map(a => a.propertyId);
+    
+    // Filter to only those properties
+    where.propertyId = { in: allowedPropertyIds };
+  }
+
   const requests = await prisma.maintenanceRequest.findMany({
     where,
-    select: maintenanceRequestSelect,
+    select: {
+      ...maintenanceRequestSelect,
+      ...(!property && {
+        property: {
+          select: { opaqueId: true, name: true }
+        }
+      })
+    },
     orderBy: { createdAt: "desc" },
   });
 

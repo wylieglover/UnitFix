@@ -1,6 +1,7 @@
 import "dotenv/config";
 import http from "http";
 import cors from "cors";
+import cookieParser from 'cookie-parser';
 import express from "express";
 import { env } from "./config/env";
 import { prisma } from "./lib/prisma";
@@ -15,14 +16,26 @@ import "./subscribers";
 const app = express();
 let server: http.Server;
 
+const allowedOrigins = [
+  env.FRONTEND_URL,   // e.g. http://localhost:3000
+  "http://localhost:5173" // Vite dev server
+];
+
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/auth", authRouter);

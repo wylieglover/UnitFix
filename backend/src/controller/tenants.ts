@@ -1,21 +1,59 @@
 import { asyncHandler } from "../helpers/asyncHandler";
 import { tenantSelect, formatTenant } from "../helpers/tenantHelpers";
 import { prisma } from "../lib/prisma";
+import { TokenPayload } from "../helpers/token";
 
 export const listTenants = asyncHandler(async (req, res, next) => {
-  const { property } = res.locals;
+  const { property, organization } = res.locals;
+  const { userId, userType } = res.locals.user as TokenPayload;
   const { status } = res.locals.query;
 
+  const statusFilter =
+    status === "archived"
+      ? { archivedAt: { not: null } }
+      : status === "all"
+        ? {}
+        : { archivedAt: null };
+
+  // Build base where clause
+  let whereClause: any = {
+    ...statusFilter,
+  };
+
+  // Property-specific or org-level logic
+  if (property) {
+    // Specific property context
+    whereClause.propertyId = property.id;
+  } else {
+    // Organization-level context
+    whereClause.property = { organizationId: organization.id };
+    
+    // ✅ If staff viewing org-level list, filter to only their properties
+    if (userType === "staff") {
+      const staffAssignments = await prisma.propertyStaff.findMany({
+        where: { userId },
+        select: { propertyId: true }
+      });
+      
+      const allowedPropertyIds = staffAssignments.map(a => a.propertyId);
+      whereClause.propertyId = { in: allowedPropertyIds };
+    }
+  }
+
   const tenants = await prisma.tenant.findMany({
-    where: {
-      propertyId: property.id,
-      ...(status === "archived"
-        ? { archivedAt: { not: null } }
-        : status === "all"
-          ? {}
-          : { archivedAt: null }),
+    where: whereClause,
+    select: {
+      ...tenantSelect,
+      // Include property info when listing org-wide
+      ...(!property && {
+        property: {
+          select: {
+            opaqueId: true,
+            name: true,
+          },
+        },
+      }),
     },
-    select: tenantSelect,
   });
 
   return res.status(200).json({

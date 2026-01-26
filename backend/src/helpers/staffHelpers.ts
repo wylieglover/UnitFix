@@ -11,6 +11,12 @@ export const staffSelect = {
       email: true,
     },
   },
+  property: {
+    select: {
+      opaqueId: true,
+      name: true,
+    }
+  }
 } as const;
 
 type StaffWithSelect = Prisma.PropertyStaffGetPayload<{
@@ -25,6 +31,10 @@ export const formatStaff = (staff: StaffWithSelect) => ({
     id: staff.user.opaqueId,
     name: staff.user.name,
     email: staff.user.email,
+  },
+  property: {
+    id: staff.property.opaqueId,
+    name: staff.property.name,
   },
 });
 

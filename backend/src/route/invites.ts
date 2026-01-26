@@ -3,12 +3,13 @@ import express from "express";
 import { authenticate } from "../middleware/authenticate";
 import { validate } from "../middleware/validate";
 import { authorize } from "../middleware/authorize";
-import { sendInvite, acceptInvite, getInviteDetails } from "../controller/invites";
+import { sendInvite, bulkSendInvites, acceptInvite, getInviteDetails } from "../controller/invites";
 import {
   sendInviteBodySchema,
   sendInviteQuerySchema,
   inviteParamsSchema,
   acceptInviteBodySchema,
+  bulkSendInviteBodySchema
 } from "../schema/invites";
 
 const inviteRouter = express.Router();
@@ -20,6 +21,14 @@ inviteRouter.post(
   validate({ query: sendInviteQuerySchema, body: sendInviteBodySchema }),
   authorize({ orgRoles: ["org_owner", "org_admin"] }),
   sendInvite
+);
+
+inviteRouter.post(
+  "/bulk",
+  authenticate,
+  validate({ query: sendInviteQuerySchema, body: bulkSendInviteBodySchema }),
+  authorize({ orgRoles: ["org_owner", "org_admin"] }),
+  bulkSendInvites
 );
 
 inviteRouter.get("/:token", validate({ params: inviteParamsSchema }), getInviteDetails);

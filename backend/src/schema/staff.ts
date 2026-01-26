@@ -9,13 +9,23 @@ const archived = z.boolean();
 
 export const staffByPropertyIdParamsSchema = z.strictObject({
   organizationId,
-  propertyId,
+  propertyId: propertyId.optional(),
 });
 
 export const staffByIdParamsSchema = z.strictObject({
   organizationId,
   propertyId,
   userId,
+});
+
+export const assignStaffBodySchema = z.strictObject({
+  userId: z.uuid("Invalid user ID"),
+  propertyId: z.uuid("Invalid property ID"),
+  role: z.enum(["manager", "member"]),
+});
+
+export const assignStaffParamsSchema = z.strictObject({
+  organizationId: z.uuid("Invalid organization ID"),
 });
 
 export const updateStaffBodySchema = z

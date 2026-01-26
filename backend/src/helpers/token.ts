@@ -8,7 +8,9 @@ export type TokenPayload = {
   userId: number;
   userType: UserType;
   organizationId?: number;
-  propertyId?: number;
+  propertyId?: number;  
+  propertyOpaqueId?: string;  
+  organizationOpaqueId?: string;  
 };
 
 export const generateAccessToken = (payload: TokenPayload): string => {

@@ -1,7 +1,7 @@
 // helpers/authHelpers.ts
 import { env } from "../config/env";
 import { prisma } from "../lib/prisma";
-import { generateAccessToken, generateRefreshToken, hashRefreshToken, TokenPayload } from "./token";
+import { generateAccessToken, generateRefreshToken, hashRefreshToken, verifyRefreshToken, TokenPayload } from "./token";
 import { Request, Response } from "express";
 
 export const createSessionAndTokens = async (
@@ -32,4 +32,45 @@ export const createSessionAndTokens = async (
   });
 
   return { accessToken, refreshToken };
+};
+
+export const verifyAndRotateRefreshToken = async (
+  refreshToken: string,
+  req: Request,
+  res: Response
+) => {
+  try {
+    // Verify the token is valid
+    const payload = verifyRefreshToken(refreshToken);
+    const refreshTokenHash = hashRefreshToken(refreshToken);
+
+    // Find the session
+    const session = await prisma.session.findFirst({
+      where: {
+        userId: payload.userId,
+        refreshTokenHash,
+        expiresAt: { gt: new Date() }, // Not expired
+      },
+    });
+
+    if (!session) {
+      throw new Error("Invalid or expired session");
+    }
+
+    // Delete old session
+    await prisma.session.delete({
+      where: { id: session.id },
+    });
+
+    // Create new tokens and session
+    const { accessToken, refreshToken: newRefreshToken } = await createSessionAndTokens(
+      payload,
+      req,
+      res
+    );
+
+    return { accessToken, refreshToken: newRefreshToken, userId: payload.userId };
+  } catch (error) {
+    throw new Error("Invalid refresh token");
+  }
 };

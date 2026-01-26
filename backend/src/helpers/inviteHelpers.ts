@@ -88,8 +88,24 @@ export const formatInvite = (invite: InviteWithRelations) => ({
 });
 
 // Format minimal invite (for sendInvite response)
-export const formatInviteMinimal = (invite: { role: string; expiresAt: Date }) => ({
+export const formatInviteMinimal = (invite: { 
+  role: string; 
+  expiresAt: Date; 
+  email?: string | null; 
+  phone?: string | null 
+}) => ({
   role: invite.role,
+  email: invite.email ?? null,
+  phone: invite.phone ?? null,
+  expiresAt: invite.expiresAt,
+});
+
+export const formatInviteBatchItem = (invite: Prisma.InviteGetPayload<{ select: typeof inviteSelect }>) => ({
+  id: invite.id, // Internal ID
+  email: invite.email,
+  phone: invite.phone,
+  role: invite.role,
+  unitNumber: invite.unitNumber,
   expiresAt: invite.expiresAt,
 });
 
@@ -107,6 +123,15 @@ export const createRoleRelationship = async (
 ) => {
   switch (invite.role) {
     case "org_admin": {
+      // Check if already exists (shouldn't happen due to validation, but defensive)
+      const existing = await tx.orgAdmin.findUnique({
+        where: { userId },
+      });
+
+      if (existing) {
+        throw new Error("User is already an org admin");
+      }
+
       await tx.orgAdmin.create({
         data: {
           userId,
@@ -119,6 +144,20 @@ export const createRoleRelationship = async (
     case "staff": {
       if (!invite.propertyId || !invite.maintenanceRole) {
         throw new Error("Invalid staff invite configuration");
+      }
+
+      // Check if already assigned to this property (shouldn't happen, but defensive)
+      const existing = await tx.propertyStaff.findUnique({
+        where: {
+          userId_propertyId: {
+            userId,
+            propertyId: invite.propertyId,
+          },
+        },
+      });
+
+      if (existing) {
+        throw new Error("Staff member is already assigned to this property");
       }
 
       await tx.propertyStaff.create({
@@ -134,6 +173,15 @@ export const createRoleRelationship = async (
     case "tenant": {
       if (!invite.propertyId) {
         throw new Error("Tenant invite must include propertyId");
+      }
+
+      // Check if user is already a tenant (shouldn't happen due to validation, but defensive)
+      const existing = await tx.tenant.findUnique({
+        where: { userId },
+      });
+
+      if (existing) {
+        throw new Error("User is already a tenant at another property");
       }
 
       const finalUnitNumber = unitNumberOverride ?? invite.unitNumber;

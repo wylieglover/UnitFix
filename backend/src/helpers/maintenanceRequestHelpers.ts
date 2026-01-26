@@ -34,6 +34,12 @@ export const maintenanceRequestSelect = {
   assignedAt: true,
   createdBy: false,
   assignedTo: false,
+  property: {
+    select: {
+      opaqueId: true,
+      name: true,
+    }
+  },
   creator: {
     select: {
       opaqueId: true,
@@ -67,6 +73,10 @@ export const formatMaintenanceRequest = (request: MaintenanceRequestWithSelect) 
   cancelledAt: request.cancelledAt,
   archivedAt: request.archivedAt,
   assignedAt: request.assignedAt,
+  property: request.property ? {
+    id: request.property.opaqueId,
+    name: request.property.name,
+  } : null,
   creator: {
     id: request.creator.opaqueId,
     name: request.creator.name,

@@ -32,9 +32,17 @@ propertiesRouter.post(
 propertiesRouter.get(
   "/",
   validate({ query: propertyQuerySchema }),
-  authorize({ orgRoles: ["org_owner", "org_admin"] }),
+  authorize({ 
+    orgRoles: ["org_owner", "org_admin", "staff"],
+    property: { allowStaff: true } 
+  }),
   listProperties
 );
+
+// Organization-scoped route entries
+propertiesRouter.use("/tenants", tenantsRouter);
+propertiesRouter.use("/staff", staffRouter);
+propertiesRouter.use("/maintenance-requests", maintenanceRequestsRouter);
 
 propertiesRouter.use(
   "/:propertyId",
