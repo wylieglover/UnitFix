@@ -17,8 +17,8 @@ const app = express();
 let server: http.Server;
 
 const allowedOrigins = [
-  env.FRONTEND_URL,   // e.g. http://localhost:3000
-  "http://localhost:5173" // Vite dev server
+  env.FRONTEND_URL,
+  "http://localhost:5173"
 ];
 
 app.use(
