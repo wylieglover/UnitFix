@@ -1,6 +1,4 @@
 // src/pages/Home.tsx
-import { Footer } from "../components/layout/Footer";
-
 export const Home = () => {
   return (
     <div className="flex flex-col items-center">
