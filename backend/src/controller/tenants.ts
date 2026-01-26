@@ -98,17 +98,51 @@ export const updateTenant = asyncHandler(async (req, res, next) => {
     });
   }
 
-  const updatedTenant = await prisma.tenant.update({
-    where: {
-      userId_propertyId: { userId: targetUser.id, propertyId: property.id },
-    },
-    data: {
-      ...(unitNumber && { unitNumber }),
-      ...(archived !== undefined && {
-        archivedAt: archived ? new Date() : null,
-      }),
-    },
-    select: tenantSelect,
+  // Use a transaction to update tenant, tickets, and handle archiving
+  const updatedTenant = await prisma.$transaction(async (tx) => {
+    // Update the tenant
+    const tenant = await tx.tenant.update({
+      where: {
+        userId_propertyId: { userId: targetUser.id, propertyId: property.id },
+      },
+      data: {
+        ...(unitNumber && { unitNumber }),
+        ...(archived !== undefined && {
+          archivedAt: archived ? new Date() : null,
+        }),
+      },
+      select: tenantSelect,
+    });
+
+    // If unitNumber changed, update ALL tickets for the old unit to the new unit
+    if (unitNumber && existingTenant.unitNumber && unitNumber !== existingTenant.unitNumber) {
+      await tx.maintenanceRequest.updateMany({
+        where: {
+          propertyId: property.id,
+          unitNumber: existingTenant.unitNumber, // Match the OLD unit number
+        },
+        data: {
+          unitNumber: unitNumber, // Update to NEW unit number
+        },
+      });
+    }
+
+    // If archiving tenant (and they weren't already archived), cancel all open/in_progress tickets
+    if (archived === true && existingTenant.archivedAt === null && existingTenant.unitNumber) {
+      await tx.maintenanceRequest.updateMany({
+        where: {
+          propertyId: property.id,
+          unitNumber: existingTenant.unitNumber,
+          status: { in: ['open', 'in_progress'] },
+        },
+        data: {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+        },
+      });
+    }
+
+    return tenant;
   });
 
   return res.status(200).json({

@@ -3,7 +3,8 @@ import { api } from "../../../api/api";
 import type { 
   Tenant, 
   TenantListResponse, 
-  TenantQueryFilters 
+  TenantQueryFilters,
+  UpdateTenantPayload
 } from "../types/tenant.types";
 
 export const tenantService = {
@@ -19,6 +20,19 @@ export const tenantService = {
   get: async (orgId: string, propertyId: string, userId: string) => {
     const response = await api.get<{ tenant: Tenant }>(
       `/organizations/${orgId}/properties/${propertyId}/tenants/${userId}`
+    );
+    return response.data;
+  },
+
+  update: async (
+    orgId: string, 
+    propertyId: string, 
+    userId: string, 
+    payload: UpdateTenantPayload
+  ) => {
+    const response = await api.put<{ message: string; tenant: Tenant }>(
+      `/organizations/${orgId}/properties/${propertyId}/tenants/${userId}`,
+      payload
     );
     return response.data;
   },

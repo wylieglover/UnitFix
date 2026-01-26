@@ -116,7 +116,7 @@ export const updateStaff = asyncHandler(async (req, res, next) => {
 });
 
 export const assignStaffToProperty = asyncHandler(async (req, res) => {
-  const { organization } = res.locals; // Already resolved by resolveOrganization
+  const { organization } = res.locals;
   const { userId, propertyId, role } = res.locals.body;
 
   // 1. Resolve user by opaqueId

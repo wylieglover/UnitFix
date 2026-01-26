@@ -85,7 +85,7 @@ export const createMaintenanceRequest = asyncHandler(async (req, res, next) => {
 export const listMaintenanceRequests = asyncHandler(async (req, res, next) => {
   const { property, organization } = res.locals;
   const { userId, userType } = res.locals.user as TokenPayload;
-  const { status, priority, assignedTo, createdBy, archived } = res.locals.query;
+  const { status, priority, assignedTo, createdBy, relatedTo, archived } = res.locals.query;
 
   // Base filter
   const where: any = property 
@@ -112,15 +112,57 @@ export const listMaintenanceRequests = asyncHandler(async (req, res, next) => {
     where.priority = priority;
   }
 
-  // OpaqueID resolution
+  // OpaqueID resolution for assignedTo
   if (assignedTo) {
-    const user = await prisma.user.findUnique({ where: { opaqueId: assignedTo }, select: { id: true } });
+    const user = await prisma.user.findUnique({ 
+      where: { opaqueId: assignedTo }, 
+      select: { id: true } 
+    });
     if (user) where.assignedTo = user.id;
   }
 
+  // OpaqueID resolution for createdBy
   if (createdBy) {
-    const user = await prisma.user.findUnique({ where: { opaqueId: createdBy }, select: { id: true } });
+    const user = await prisma.user.findUnique({ 
+      where: { opaqueId: createdBy }, 
+      select: { id: true } 
+    });
     if (user) where.createdBy = user.id;
+  }
+
+  // ✅ NEW: relatedTo filter - finds tickets created by OR related to the user's unit
+  if (relatedTo) {
+    const user = await prisma.user.findUnique({ 
+      where: { opaqueId: relatedTo }, 
+      select: { id: true, userType: true } 
+    });
+    
+    if (user) {
+      if (user.userType === 'tenant') {
+        // For tenants, find tickets created by them OR for their unit
+        const tenant = await prisma.tenant.findUnique({
+          where: { userId: user.id },
+          select: { unitNumber: true, propertyId: true }
+        });
+        
+        if (tenant && tenant.unitNumber) {
+          // Tickets created by tenant OR for their unit at their property
+          where.OR = [
+            { createdBy: user.id },
+            { 
+              unitNumber: tenant.unitNumber,
+              propertyId: tenant.propertyId 
+            }
+          ];
+        } else {
+          // No unit number, just show tickets they created
+          where.createdBy = user.id;
+        }
+      } else {
+        // For staff/admins, just show tickets they created
+        where.createdBy = user.id;
+      }
+    }
   }
 
   // ✅ SECURITY: Tenants can only see their own requests
@@ -128,7 +170,7 @@ export const listMaintenanceRequests = asyncHandler(async (req, res, next) => {
     where.createdBy = userId;
   }
 
-  // ✅ ADD THIS: Staff can only see requests from their assigned properties
+  // ✅ Staff can only see requests from their assigned properties
   if (userType === "staff" && !property) {
     // Get all property IDs the staff is assigned to
     const staffAssignments = await prisma.propertyStaff.findMany({

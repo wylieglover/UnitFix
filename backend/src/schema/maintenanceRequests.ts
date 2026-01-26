@@ -16,6 +16,8 @@ const status = z.enum(["open", "in_progress", "completed", "cancelled"]);
 
 const code = z.string().length(4, "Code must be 4 characters");
 
+const relatedTo = z.uuid("Invalid user ID");
+
 const assignedTo = z.uuid("Invalid user ID");
 
 const propertyId = z.uuid("Invalid property ID");
@@ -37,6 +39,7 @@ const statusFilter = z.enum(["open", "in_progress", "completed", "cancelled", "a
 export const listMaintenanceRequestsQuerySchema = z.object({
   status: statusFilter.default("open"),
   priority: priority.optional(),
+  relatedTo: relatedTo.optional(),
   assignedTo: assignedTo.optional(),
   createdBy: assignedTo.optional(),
   archived: z.enum(["active", "archived", "all"]).default("active"),

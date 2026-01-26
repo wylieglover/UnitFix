@@ -6,6 +6,11 @@ export interface CreateTenantPayload {
   unitNumber: string;
 }
 
+export interface UpdateTenantPayload {
+  unitNumber?: string;
+  archived?: boolean;
+}
+
 export interface Tenant {
   userId: string;
   unitNumber: string | null;

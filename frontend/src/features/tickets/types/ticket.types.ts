@@ -61,6 +61,7 @@ export interface TicketListResponse {
 export interface TicketQueryFilters {
   status?: TicketStatus | "all";
   priority?: TicketPriority;
+  relatedTo?: string;
   assignedTo?: string; // opaqueId of the staff member
   createdBy?: string;  // opaqueId of the creator
   archived?: "all" | "active" | "archived";
