@@ -51,3 +51,7 @@ export const organizationRegistrationSchema = z.strictObject({
 export const organizationIdParamSchema = z.strictObject({
   organizationId: z.uuid("Invalid organization ID"),
 });
+
+export const provisionPhoneSchema = z.strictObject({
+  areaCode: z.string().regex(/^\d{3}$/, "Area code must be exactly 3 digits"),
+});

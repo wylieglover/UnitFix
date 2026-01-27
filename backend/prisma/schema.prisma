@@ -58,12 +58,15 @@ model User {
 }
 
 model Organization {
-  id          Int      @id @default(autoincrement())
-  opaqueId    String   @unique @default(dbgenerated("gen_random_uuid()"))
-  name        String   @unique @db.Citext
-  contactInfo String   @map("contact_info") @db.VarChar(255)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                Int     @id @default(autoincrement())
+  opaqueId          String  @unique @default(dbgenerated("gen_random_uuid()"))
+  name              String  @unique @db.Citext
+  contactInfo       String  @map("contact_info") @db.VarChar(255)
+  twilioPhoneNumber String? @unique @map("twilio_phone_number")
+  twilioSid         String? @unique @map("twilio_sid")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   admins     OrgAdmin[]
   properties Property[]
@@ -96,10 +99,10 @@ model Property {
   zip                    String
   country                String       @default("USA")
   maintenancePhoneNumber String?      @unique @map("maintenance_phone_number")
-  twilioSid              String?      @unique @map("twilio_sid")
-  createdAt              DateTime     @default(now()) @map("created_at")
-  updatedAt              DateTime     @updatedAt @map("updated_at")
-  archivedAt             DateTime?    @map("archived_at")
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
 
   staff               PropertyStaff[]
   tenants             Tenant[]

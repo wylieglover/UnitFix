@@ -1,3 +1,4 @@
+// services/twilio/twilioService.ts
 import twilio from "twilio";
 import { env } from "../../config/env";
 
@@ -7,26 +8,24 @@ const DEV_TRIAL_NUMBER = "+18889068142";
 
 export const twilioService = {
   /**
-   * Finds and purchases a phone number, then configures it
+   * Provision phone number for an organization
    */
-  async provisionPropertyNumber(areaCode: string, propertyOpaqueId: string) {
+  async provisionOrganizationNumber(areaCode: string, organizationOpaqueId: string) {
     if (env.NODE_ENV !== "production") {
-      console.log(`[Twilio Dev Mode] Simulating provisioning for area code ${areaCode}`);
+      console.log(`[Twilio Dev Mode] Simulating provisioning for organization ${organizationOpaqueId}, area code ${areaCode}`);
       return {
         phoneNumber: DEV_TRIAL_NUMBER,
-        twilioSid: env.TWILIO_ACCOUNT_SID,
+        twilioSid: "DEV_SID_" + organizationOpaqueId,
       };
     }
 
     try {
       // 1. Search for available numbers
-      // Error 1 fix: Parse areaCode to Number as required by Twilio SDK
       const available = await client.availablePhoneNumbers("US").local.list({
         areaCode: parseInt(areaCode, 10),
         limit: 1,
       });
 
-      // Error 2 fix: Ensure the array exists and has at least one entry
       const firstFound = available[0];
       if (!firstFound || !firstFound.phoneNumber) {
         throw new Error(`No numbers available for area code ${areaCode}`);
@@ -37,20 +36,37 @@ export const twilioService = {
       // 2. Purchase the number
       const purchased = await client.incomingPhoneNumbers.create({
         phoneNumber: selectedNumber,
-        friendlyName: `Property: ${propertyOpaqueId}`,
+        friendlyName: `Organization: ${organizationOpaqueId}`,
 
         // 3. Configure Webhooks
-        // Ensure this URL matches your eventual webhook route
         smsUrl: `${env.BACKEND_URL}/api/webhooks/twilio/sms`,
         smsMethod: "POST",
       });
 
       return {
         phoneNumber: purchased.phoneNumber,
-        twilioSid: purchased.sid, // Matching our DB field name
+        twilioSid: purchased.sid,
       };
     } catch (error) {
       console.error("[Twilio Provisioning Error]:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Release a Twilio phone number
+   */
+  async releaseNumber(twilioSid: string) {
+    if (env.NODE_ENV !== "production") {
+      console.log(`[Twilio Dev Mode] Simulating release of ${twilioSid}`);
+      return { success: true };
+    }
+
+    try {
+      await client.incomingPhoneNumbers(twilioSid).remove();
+      return { success: true };
+    } catch (error) {
+      console.error("[Twilio Release Error]:", error);
       throw error;
     }
   },

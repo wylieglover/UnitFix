@@ -2,8 +2,8 @@
 import express from "express";
 import { propertiesRouter } from "./properties";
 import { validate } from "../middleware/validate";
-import { organizationRegistrationSchema, organizationIdParamSchema } from "../schema/organizations";
-import { register, getDashboard } from "../controller/organizations";
+import { organizationRegistrationSchema, organizationIdParamSchema, provisionPhoneSchema } from "../schema/organizations";
+import { register, getDashboard, provisionOrganizationPhone } from "../controller/organizations";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { resolveOrganization } from "../middleware/resolveOrganization";
@@ -23,6 +23,13 @@ organizationsRouter.get(
   "/:organizationId/dashboard",
   authorize({ orgRoles: ["org_owner", "org_admin"] }),
   getDashboard
+);
+
+organizationsRouter.post(
+  "/:organizationId/phone",
+  validate({ body: provisionPhoneSchema }),
+  authorize({ orgRoles: ["org_owner", "org_admin"] }),
+  provisionOrganizationPhone
 );
 
 organizationsRouter.use("/:organizationId/properties", propertiesRouter);

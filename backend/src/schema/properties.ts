@@ -48,10 +48,3 @@ export const propertyByIdParamsSchema = z.strictObject({
 export const propertyQuerySchema = z.object({
   status: statusEnum.default("active"),
 });
-
-export const provisionPhoneSchema = z.object({
-  areaCode: z
-    .string()
-    .length(3, "Area code must be exactly 3 digits")
-    .regex(/^\d+$/, "Area code must only contain numbers"),
-});

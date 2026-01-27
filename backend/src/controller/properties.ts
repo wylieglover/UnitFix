@@ -8,6 +8,12 @@ export const createProperty = asyncHandler(async (req, res, next) => {
   const { organization } = res.locals;
   const { name, street, city, state, zip, country } = res.locals.body;
 
+  // Check if organization has a provisioned phone number
+  const orgWithPhone = await prisma.organization.findUnique({
+    where: { id: organization.id },
+    select: { twilioPhoneNumber: true },
+  });
+
   const property = await prisma.property.create({
     data: {
       organizationId: organization.id,
@@ -17,6 +23,10 @@ export const createProperty = asyncHandler(async (req, res, next) => {
       state,
       zip,
       country,
+      // Automatically inherit organization's phone number if it exists
+      ...(orgWithPhone?.twilioPhoneNumber && {
+        maintenancePhoneNumber: orgWithPhone.twilioPhoneNumber,
+      }),
     },
     select: propertySelect,
   });
@@ -90,33 +100,6 @@ export const updateProperty = asyncHandler(async (req, res, next) => {
   });
 
   return res.status(200).json({
-    property: formatProperty(updatedProperty),
-  });
-});
-
-export const provisionPropertyPhone = asyncHandler(async (req, res) => {
-  const { property } = res.locals; // Already resolved by your middleware!
-  const { areaCode } = res.locals.body;
-
-  if (property.maintenancePhoneNumber) {
-    return res.status(400).json({ error: "Property already has a phone number" });
-  }
-
-  // 1. Provision via Twilio Service
-  const provisioned = await twilioService.provisionPropertyNumber(areaCode, property.opaqueId);
-
-  // 2. Update DB with both the number and the Resource SID
-  const updatedProperty = await prisma.property.update({
-    where: { id: property.id },
-    data: {
-      maintenancePhoneNumber: provisioned.phoneNumber,
-      twilioSid: provisioned.twilioSid,
-    },
-    select: propertySelect,
-  });
-
-  return res.status(200).json({
-    message: "Phone number provisioned successfully",
     property: formatProperty(updatedProperty),
   });
 });
