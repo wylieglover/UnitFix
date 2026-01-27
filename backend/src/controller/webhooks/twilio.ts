@@ -7,34 +7,43 @@ import { asyncHandler } from "../../helpers/asyncHandler";
 export const handleIncomingSms = asyncHandler(async (req: Request, res: Response) => {
   const { From: senderPhone, To: twilioPhone, Body: messageBody } = res.locals.body;
 
-  // 1. Resolve Property context
-  const property = await prisma.property.findUnique({
-    where: { maintenancePhoneNumber: twilioPhone },
+  // 1. Verify the Twilio number belongs to an organization
+  const organization = await prisma.organization.findUnique({
+    where: { twilioPhoneNumber: twilioPhone },
   });
 
-  if (!property) {
-    console.error(`[Twilio Webhook] No property found for number: ${twilioPhone}`);
-    return res.status(404).send("Property not found");
+  if (!organization) {
+    console.error(`[Twilio Webhook] No organization found for number: ${twilioPhone}`);
+    return res.status(404).send("Organization not found");
   }
 
   // 2. Resolve User/Tenant context
   const user = await prisma.user.findUnique({
     where: { phone: senderPhone },
-    include: { tenant: true },
+    include: { 
+      tenant: {
+        include: {
+          property: true
+        }
+      } 
+    },
   });
 
-  // 3. Validation: Match logic from createMaintenanceRequest (Tenant only)
-  if (
-    !user ||
-    user.userType !== "tenant" ||
-    !user.tenant ||
-    user.tenant.propertyId !== property.id
-  ) {
+  // 3. Validation: User must be a tenant with an active tenancy
+  if (!user || user.userType !== "tenant" || !user.tenant) {
     console.log(`[Twilio Webhook] Unauthorized or unrecognized text from ${senderPhone}`);
     return res.status(200).send("User not recognized");
   }
 
-  // 4. Generate unique code (Consistent with createMaintenanceRequest logic)
+  // 4. Verify tenant's property belongs to this organization
+  if (user.tenant.property.organizationId !== organization.id) {
+    console.log(`[Twilio Webhook] Tenant ${user.id} does not belong to organization ${organization.id}`);
+    return res.status(200).send("User not recognized");
+  }
+
+  const property = user.tenant.property;
+
+  // 5. Generate unique code (Consistent with createMaintenanceRequest logic)
   let code: string;
   let attempts = 0;
   const maxAttempts = 10;
@@ -51,7 +60,6 @@ export const handleIncomingSms = asyncHandler(async (req: Request, res: Response
 
     attempts++;
     if (attempts >= maxAttempts) {
-      // For SMS, we still want to respond nicely to the user
       res.type("text/xml");
       return res.send(`
         <Response>
@@ -61,7 +69,7 @@ export const handleIncomingSms = asyncHandler(async (req: Request, res: Response
     }
   }
 
-  // 5. Create Request (Mapping fields same as Web API)
+  // 6. Create Request (Mapping fields same as Web API)
   const request = await prisma.maintenanceRequest.create({
     data: {
       code,
@@ -78,17 +86,17 @@ export const handleIncomingSms = asyncHandler(async (req: Request, res: Response
     },
   });
 
-  // 6. Trigger standardized event
+  // 7. Trigger standardized event
   Events.publish(MaintenanceEvents.CREATED, {
     requestId: request.id,
     propertyId: property.id,
   });
 
-  // 7. TwiML Confirmation
+  // 8. TwiML Confirmation
   res.type("text/xml");
   return res.send(`
     <Response>
-      <Sms>Hi ${user.name}, maintenance request #${code} has been created for unit ${user.tenant.unitNumber || "N/A"}.</Sms>
+      <Sms>Hi ${user.name}, maintenance request #${code} has been created for ${property.name}, unit ${user.tenant.unitNumber || "N/A"}.</Sms>
     </Response>
   `);
 });
