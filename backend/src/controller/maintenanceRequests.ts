@@ -10,8 +10,20 @@ import { Events, MaintenanceEvents } from "../lib/events";
 
 export const createMaintenanceRequest = asyncHandler(async (req, res, next) => {
   const { property } = res.locals;
-  const { userId, userType } = res.locals.user as TokenPayload;
+  const { userId: userOpaqueId, userType } = res.locals.user as TokenPayload;
   const { description, unitNumber, priority } = res.locals.body;
+
+  // Resolve internal userId from opaqueId
+  const user = await prisma.user.findUnique({
+    where: { opaqueId: userOpaqueId },
+    select: { id: true }
+  });
+
+  if (!user) {
+    return res.status(401).json({ error: "User not found" });
+  }
+
+  const userId = user.id;
 
   // Handle unit number based on user type
   let finalUnitNumber: string | null = null;
@@ -84,8 +96,20 @@ export const createMaintenanceRequest = asyncHandler(async (req, res, next) => {
 
 export const listMaintenanceRequests = asyncHandler(async (req, res, next) => {
   const { property, organization } = res.locals;
-  const { userId, userType } = res.locals.user as TokenPayload;
+  const { userId: userOpaqueId, userType } = res.locals.user as TokenPayload;
   const { status, priority, assignedTo, createdBy, relatedTo, archived } = res.locals.query;
+
+  // Resolve internal userId from opaqueId
+  const user = await prisma.user.findUnique({
+    where: { opaqueId: userOpaqueId },
+    select: { id: true }
+  });
+
+  if (!user) {
+    return res.status(401).json({ error: "User not found" });
+  }
+
+  const userId = user.id;
 
   // Base filter
   const where: any = property 
@@ -114,41 +138,41 @@ export const listMaintenanceRequests = asyncHandler(async (req, res, next) => {
 
   // OpaqueID resolution for assignedTo
   if (assignedTo) {
-    const user = await prisma.user.findUnique({ 
+    const assignedUser = await prisma.user.findUnique({ 
       where: { opaqueId: assignedTo }, 
       select: { id: true } 
     });
-    if (user) where.assignedTo = user.id;
+    if (assignedUser) where.assignedTo = assignedUser.id;
   }
 
   // OpaqueID resolution for createdBy
   if (createdBy) {
-    const user = await prisma.user.findUnique({ 
+    const createdByUser = await prisma.user.findUnique({ 
       where: { opaqueId: createdBy }, 
       select: { id: true } 
     });
-    if (user) where.createdBy = user.id;
+    if (createdByUser) where.createdBy = createdByUser.id;
   }
 
-  // ✅ NEW: relatedTo filter - finds tickets created by OR related to the user's unit
+  // relatedTo filter - finds tickets created by OR related to the user's unit
   if (relatedTo) {
-    const user = await prisma.user.findUnique({ 
+    const relatedUser = await prisma.user.findUnique({ 
       where: { opaqueId: relatedTo }, 
       select: { id: true, userType: true } 
     });
     
-    if (user) {
-      if (user.userType === 'tenant') {
+    if (relatedUser) {
+      if (relatedUser.userType === 'tenant') {
         // For tenants, find tickets created by them OR for their unit
         const tenant = await prisma.tenant.findUnique({
-          where: { userId: user.id },
+          where: { userId: relatedUser.id },
           select: { unitNumber: true, propertyId: true }
         });
         
         if (tenant && tenant.unitNumber) {
           // Tickets created by tenant OR for their unit at their property
           where.OR = [
-            { createdBy: user.id },
+            { createdBy: relatedUser.id },
             { 
               unitNumber: tenant.unitNumber,
               propertyId: tenant.propertyId 
@@ -156,21 +180,21 @@ export const listMaintenanceRequests = asyncHandler(async (req, res, next) => {
           ];
         } else {
           // No unit number, just show tickets they created
-          where.createdBy = user.id;
+          where.createdBy = relatedUser.id;
         }
       } else {
         // For staff/admins, just show tickets they created
-        where.createdBy = user.id;
+        where.createdBy = relatedUser.id;
       }
     }
   }
 
-  // ✅ SECURITY: Tenants can only see their own requests
-  if (userType === "tenant") {
+  // SECURITY: Tenants can only see their own requests
+  if (userType === "tenant" && !relatedTo) {
     where.createdBy = userId;
   }
 
-  // ✅ Staff can only see requests from their assigned properties
+  // Staff can only see requests from their assigned properties
   if (userType === "staff" && !property) {
     // Get all property IDs the staff is assigned to
     const staffAssignments = await prisma.propertyStaff.findMany({
@@ -204,8 +228,20 @@ export const listMaintenanceRequests = asyncHandler(async (req, res, next) => {
 
 export const getMaintenanceRequest = asyncHandler(async (req, res, next) => {
   const { property } = res.locals;
-  const { userId, userType } = res.locals.user as TokenPayload;
+  const { userId: userOpaqueId, userType } = res.locals.user as TokenPayload;
   const { code } = res.locals.params;
+
+  // Resolve internal userId from opaqueId
+  const user = await prisma.user.findUnique({
+    where: { opaqueId: userOpaqueId },
+    select: { id: true }
+  });
+
+  if (!user) {
+    return res.status(401).json({ error: "User not found" });
+  }
+
+  const userId = user.id;
 
   const request = await prisma.maintenanceRequest.findUnique({
     where: {
@@ -236,7 +272,7 @@ export const updateMaintenanceRequest = asyncHandler(async (req, res, next) => {
   const { code } = res.locals.params;
   const { description, priority, status, assignedTo, unitNumber, archived } = res.locals.body;
 
-  // 1. Check if request exists
+  // Check if request exists
   const existingRequest = await prisma.maintenanceRequest.findUnique({
     where: { propertyId_code: { propertyId: property.id, code } },
   });
@@ -245,14 +281,14 @@ export const updateMaintenanceRequest = asyncHandler(async (req, res, next) => {
     return res.status(404).json({ error: "Maintenance request not found" });
   }
 
-  // 2. Build update data
+  // Build update data
   const updateData: any = {
     ...(description && { description }),
     ...(priority && { priority }),
     ...(unitNumber !== undefined && { unitNumber }),
   };
 
-  // 3. Status logic with timestamp resets
+  // Status logic with timestamp resets
   let shouldNotifyStatus = false;
   if (status) {
     updateData.status = status;
@@ -276,7 +312,7 @@ export const updateMaintenanceRequest = asyncHandler(async (req, res, next) => {
     }
   }
 
-  // 4. Assignment logic
+  // Assignment logic
   let shouldNotifyAssignment = false;
   let newAssigneeInternalId: number | null = null;
 
@@ -305,12 +341,12 @@ export const updateMaintenanceRequest = asyncHandler(async (req, res, next) => {
     }
   }
 
-  // 5. Archiving logic
+  // Archiving logic
   if (archived !== undefined) {
     updateData.archivedAt = archived ? new Date() : null;
   }
 
-  // 6. Execute Update
+  // Execute Update
   const updatedRequest = await prisma.maintenanceRequest.update({
     where: { propertyId_code: { propertyId: property.id, code } },
     data: updateData,
@@ -321,7 +357,7 @@ export const updateMaintenanceRequest = asyncHandler(async (req, res, next) => {
     },
   });
 
-  // 7. Trigger Events
+  // Trigger Events
   // Notify Assignment Change
   if (shouldNotifyAssignment && newAssigneeInternalId) {
     Events.publish(MaintenanceEvents.ASSIGNED, {

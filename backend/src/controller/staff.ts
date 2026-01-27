@@ -5,8 +5,20 @@ import { TokenPayload } from "../helpers/token";
 
 export const listStaff = asyncHandler(async (req, res, next) => {
   const { property, organization } = res.locals;
-  const { userId, userType } = res.locals.user as TokenPayload;
+  const { userId: userOpaqueId, userType } = res.locals.user as TokenPayload;
   const { status } = res.locals.query;
+
+  // Resolve internal userId from opaqueId
+  const user = await prisma.user.findUnique({
+    where: { opaqueId: userOpaqueId },
+    select: { id: true }
+  });
+
+  if (!user) {
+    return res.status(401).json({ error: "User not found" });
+  }
+
+  const userId = user.id;
 
   const statusFilter =
     status === "archived"
@@ -28,7 +40,7 @@ export const listStaff = asyncHandler(async (req, res, next) => {
     // Organization-level context
     whereClause.property = { organizationId: organization.id };
     
-    // ✅ If staff viewing org-level list, filter to only their properties
+    // If staff viewing org-level list, filter to only their properties
     if (userType === "staff") {
       const staffAssignments = await prisma.propertyStaff.findMany({
         where: { userId },

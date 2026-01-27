@@ -74,10 +74,9 @@ export const register = asyncHandler(async (req, res, next) => {
 
   // Create session and tokens
   const tokenPayload: TokenPayload = {
-    userId: user.id,                           
-    userType: "org_owner",
-    organizationId: organization.id,            
-    organizationOpaqueId: organization.opaqueId, 
+    userId: user.opaqueId, 
+    userType: user.userType,
+    organizationId: organization.opaqueId
   };
 
   const { accessToken } = await createSessionAndTokens(tokenPayload, req, res);

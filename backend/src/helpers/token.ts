@@ -5,12 +5,10 @@ import { env } from "../config/env";
 import { type UserType } from "../lib/prisma";
 
 export type TokenPayload = {
-  userId: number;
+  userId: string;
   userType: UserType;
-  organizationId?: number;
-  propertyId?: number;  
-  propertyOpaqueId?: string;  
-  organizationOpaqueId?: string;  
+  organizationId?: string;
+  propertyId?: string; 
 };
 
 export const generateAccessToken = (payload: TokenPayload): string => {

@@ -20,7 +20,7 @@ export const login = asyncHandler(async (req, res, next) => {
           organization: {
             select: {
               ...organizationSelect,
-              id: true,
+              id: true, // Still need for internal logic
             },
           },
         },
@@ -30,11 +30,11 @@ export const login = asyncHandler(async (req, res, next) => {
           property: {
             select: {
               ...propertySelect,
-              id: true,
+              id: true, // Still need for internal logic
               organization: {
                 select: {
                   ...organizationSelect,
-                  id: true,
+                  id: true, // Still need for internal logic
                 },
               },
             },
@@ -46,11 +46,11 @@ export const login = asyncHandler(async (req, res, next) => {
           property: {
             select: {
               ...propertySelect,
-              id: true,
+              id: true, // Still need for internal logic
               organization: {
                 select: {
                   ...organizationSelect,
-                  id: true,
+                  id: true, // Still need for internal logic
                 },
               },
             },
@@ -74,33 +74,25 @@ export const login = asyncHandler(async (req, res, next) => {
     return res.status(403).json({ error: "Account has been deactivated" });
   }
 
-  // Build token payload
+  // ✅ Build token payload with ONLY opaqueIds
   const tokenPayload: TokenPayload = {
-    userId: user.id,
+    userId: user.opaqueId, // ✅ Changed from user.id
     userType: user.userType,
   };
 
-  if (user.orgAdmin?.organizationId) {
-    tokenPayload.organizationId = user.orgAdmin.organizationId;
-    // Add opaque ID for frontend
-    if (user.orgAdmin.organization?.opaqueId) {
-      tokenPayload.organizationOpaqueId = user.orgAdmin.organization.opaqueId;
-    }
+  if (user.orgAdmin?.organization) {
+    tokenPayload.organizationId = user.orgAdmin.organization.opaqueId; // ✅ Changed
   } else if (user.propertyStaff.length > 0) {
     const firstStaff = user.propertyStaff[0];
     if (firstStaff?.property) {
-      tokenPayload.propertyId = firstStaff.propertyId;
-      tokenPayload.propertyOpaqueId = firstStaff.property.opaqueId;
+      tokenPayload.propertyId = firstStaff.property.opaqueId; // ✅ Changed
       if (firstStaff.property.organization) {
-        tokenPayload.organizationId = firstStaff.property.organization.id;
-        tokenPayload.organizationOpaqueId = firstStaff.property.organization.opaqueId;
+        tokenPayload.organizationId = firstStaff.property.organization.opaqueId; // ✅ Changed
       }
     }
   } else if (user.tenant?.property) {
-    tokenPayload.propertyId = user.tenant.propertyId;
-    tokenPayload.propertyOpaqueId = user.tenant.property.opaqueId;
-    tokenPayload.organizationId = user.tenant.property.organization.id;
-    tokenPayload.organizationOpaqueId = user.tenant.property.organization.opaqueId;
+    tokenPayload.propertyId = user.tenant.property.opaqueId; // ✅ Changed
+    tokenPayload.organizationId = user.tenant.property.organization.opaqueId; // ✅ Changed
   }
 
   const { accessToken } = await createSessionAndTokens(tokenPayload, req, res);
@@ -148,9 +140,8 @@ export const refresh = asyncHandler(async (req, res, next) => {
       res
     );
 
-    // Get fresh user data (similar to login)
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { opaqueId: userId }, 
       include: {
         orgAdmin: {
           include: {

@@ -14,9 +14,19 @@ export const createSessionAndTokens = async (
   const refreshTokenHash = hashRefreshToken(refreshToken);
   const expiresAt = new Date(Date.now() + env.JWT_REFRESH_EXPIRY * 1000);
 
+  // Resolve internal ID from opaqueId for session storage
+  const user = await prisma.user.findUnique({
+    where: { opaqueId: tokenPayload.userId },
+    select: { id: true }
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
   await prisma.session.create({
     data: {
-      userId: tokenPayload.userId,
+      userId: user.id, 
       refreshTokenHash,
       userAgent: req.headers["user-agent"] || null,
       ipAddress: req.ip || null,
@@ -44,10 +54,20 @@ export const verifyAndRotateRefreshToken = async (
     const payload = verifyRefreshToken(refreshToken);
     const refreshTokenHash = hashRefreshToken(refreshToken);
 
-    // Find the session
+    // Resolve internal userId from opaqueId
+    const user = await prisma.user.findUnique({
+      where: { opaqueId: payload.userId },
+      select: { id: true }
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Find the session using internal userId
     const session = await prisma.session.findFirst({
       where: {
-        userId: payload.userId,
+        userId: user.id, // Use internal ID
         refreshTokenHash,
         expiresAt: { gt: new Date() }, // Not expired
       },
@@ -62,7 +82,7 @@ export const verifyAndRotateRefreshToken = async (
       where: { id: session.id },
     });
 
-    // Create new tokens and session
+    // Create new tokens and session (payload already has opaqueId)
     const { accessToken, refreshToken: newRefreshToken } = await createSessionAndTokens(
       payload,
       req,

@@ -4,15 +4,13 @@ import {
   createPropertyBodySchema,
   propertyByIdParamsSchema,
   propertyQuerySchema,
-  updatePropertyBodySchema,
-  provisionPhoneSchema,
+  updatePropertyBodySchema
 } from "../schema/properties";
 import {
   createProperty,
   listProperties,
   getProperty,
-  updateProperty,
-  provisionPropertyPhone,
+  updateProperty
 } from "../controller/properties";
 import { authorize } from "../middleware/authorize";
 import { staffRouter } from "./staff";
@@ -64,13 +62,6 @@ propertiesRouter.put(
   validate({ body: updatePropertyBodySchema }),
   authorize({ orgRoles: ["org_owner", "org_admin"] }),
   updateProperty
-);
-
-propertiesRouter.post(
-  "/:propertyId/phone",
-  validate({ body: provisionPhoneSchema }),
-  authorize({ orgRoles: ["org_owner", "org_admin"] }),
-  provisionPropertyPhone
 );
 
 propertiesRouter.use("/:propertyId/staff", staffRouter);

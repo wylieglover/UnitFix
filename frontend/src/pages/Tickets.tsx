@@ -18,7 +18,7 @@ type PriorityFilter = 'all' | TicketPriority;
 export const Tickets = () => {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
-  const { propertyId, isTenant, loading: authLoading } = useAuth(); 
+  const { propertyId, isTenant, userId, loading: authLoading } = useAuth(); 
   
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +42,9 @@ export const Tickets = () => {
           {
             status: statusFilter,
             priority: priorityFilter === 'all' ? undefined : priorityFilter,
-            archived: archiveFilter
+            archived: archiveFilter,
+            // For tenants, show all tickets related to them (using userId which is the opaqueId)
+            ...(isTenant && userId && { relatedTo: userId })
           }
         );
         setTickets(data.requests);
@@ -54,7 +56,7 @@ export const Tickets = () => {
     };
 
     loadTickets();
-  }, [organizationId, propertyId, isTenant, authLoading, statusFilter, archiveFilter, priorityFilter]);
+  }, [organizationId, propertyId, isTenant, authLoading, statusFilter, archiveFilter, priorityFilter, userId]);
 
   const filteredTickets = tickets.filter(t => {
     const search = searchTerm.toLowerCase();

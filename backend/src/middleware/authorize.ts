@@ -15,9 +15,39 @@ type AuthorizeOptions = {
 
 export const authorize = (options: AuthorizeOptions = {}): RequestHandler => {
   return asyncHandler(async (req, res, next) => {
-    const { userId, userType, organizationId: tokenOrgId } = res.locals.user as TokenPayload;
-    const organizationId = res.locals.organization?.id || tokenOrgId;
-    const propertyId = res.locals.property?.id;
+    const { userId: userOpaqueId, userType, organizationId: tokenOrgId, propertyId: tokenPropertyId } = res.locals.user as TokenPayload;
+    
+    // Resolve internal userId from opaqueId
+    const user = await prisma.user.findUnique({
+      where: { opaqueId: userOpaqueId },
+      select: { id: true }
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    const userId = user.id; // Internal ID for queries
+
+    // Resolve organizationId (could be from locals or token)
+    let organizationId = res.locals.organization?.id;
+    if (!organizationId && tokenOrgId) {
+      const org = await prisma.organization.findUnique({
+        where: { opaqueId: tokenOrgId },
+        select: { id: true }
+      });
+      organizationId = org?.id;
+    }
+
+    // Resolve propertyId (could be from locals or token)
+    let propertyId = res.locals.property?.id;
+    if (!propertyId && tokenPropertyId) {
+      const property = await prisma.property.findUnique({
+        where: { opaqueId: tokenPropertyId },
+        select: { id: true }
+      });
+      propertyId = property?.id;
+    }
 
     // Org-level role check
     if (options.orgRoles && !options.orgRoles.includes(userType)) {
@@ -101,7 +131,7 @@ export const authorize = (options: AuthorizeOptions = {}): RequestHandler => {
       }
 
       const tenant = await prisma.tenant.findUnique({
-        where: { userId_propertyId: { userId, propertyId } },
+        where: { userId_propertyId: { userId, propertyId } }, // ✅ Using internal IDs
       });
 
       if (!tenant || tenant.archivedAt) {

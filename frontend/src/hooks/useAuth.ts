@@ -5,12 +5,10 @@ import { authService } from '../features/auth/services/authService';
 export type UserType = 'org_owner' | 'org_admin' | 'staff' | 'tenant';
 
 interface TokenPayload {
-  userId: string;
+  userId: string; // opaqueId (UUID)
   userType: UserType;
-  organizationId: string;
-  propertyId?: string;
-  organizationOpaqueId?: string;
-  propertyOpaqueId?: string; 
+  organizationId?: string; // opaqueId (UUID)
+  propertyId?: string; // opaqueId (UUID)
   exp: number;
 }
 
@@ -58,8 +56,8 @@ export const useAuth = () => {
     isAuthenticated, 
     user, 
     userId: user?.userId,
-    organizationId: user?.organizationOpaqueId || user?.organizationId,  
-    propertyId: user?.propertyOpaqueId || user?.propertyId,  
+    organizationId: user?.organizationId, 
+    propertyId: user?.propertyId,
     userType: user?.userType,
     isOrgLevel,
     isStaff,

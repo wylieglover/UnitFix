@@ -28,7 +28,7 @@ organizationsRouter.get(
 organizationsRouter.post(
   "/:organizationId/phone",
   validate({ body: provisionPhoneSchema }),
-  authorize({ orgRoles: ["org_owner", "org_admin"] }),
+  authorize({ orgRoles: ["org_owner"] }),
   provisionOrganizationPhone
 );
 

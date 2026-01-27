@@ -22,11 +22,39 @@ import { createSessionAndTokens } from "../helpers/authHelpers";
 export const sendInvite = asyncHandler(async (req, res) => {
   const { email: sendEmail, phone: sendPhone } = res.locals.query;
   const { email, phone, role, propertyId, maintenanceRole, unitNumber } = res.locals.body;
-  const { organizationId, userId } = res.locals.user as TokenPayload;
+  const { organizationId: orgOpaqueId, userId: userOpaqueId } = res.locals.user as TokenPayload;
 
-  if (!organizationId) {
+  if (!orgOpaqueId) {
     return res.status(400).json({ error: "Organization context required" });
   }
+
+  if (!userOpaqueId) {
+    return res.status(401).json({ error: "User context required" });
+  }
+
+  // Resolve internal organizationId from opaqueId
+  const org = await prisma.organization.findUnique({
+    where: { opaqueId: orgOpaqueId },
+    select: { id: true }
+  });
+
+  if (!org) {
+    return res.status(404).json({ error: "Organization not found" });
+  }
+
+  const organizationId = org.id;
+
+  // Resolve internal userId from opaqueId
+  const user = await prisma.user.findUnique({
+    where: { opaqueId: userOpaqueId },
+    select: { id: true }
+  });
+
+  if (!user) {
+    return res.status(401).json({ error: "User not found" });
+  }
+
+  const userId = user.id;
 
   if (sendEmail && !email) {
     return res.status(400).json({ error: "Email required when email=true" });
@@ -36,8 +64,8 @@ export const sendInvite = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: "Cannot send via phone - no phone number provided" });
   }
 
-  const actualSendEmail = sendEmail !== false; // Default true
-  const actualSendPhone = sendPhone === true && !!phone; // Only true if explicitly requested AND phone exists
+  const actualSendEmail = sendEmail !== false;
+  const actualSendPhone = sendPhone === true && !!phone;
 
   // Validate property ownership if applicable
   let internalPropertyId: number | undefined;
@@ -97,7 +125,7 @@ export const sendInvite = asyncHandler(async (req, res) => {
       propertyId: internalPropertyId ?? null,
       maintenanceRole: maintenanceRole ?? null,
       unitNumber: unitNumber ?? null,
-      createdBy: userId!,
+      createdBy: userId,
     },
   });
 
@@ -121,12 +149,44 @@ export const sendInvite = asyncHandler(async (req, res) => {
 export const bulkSendInvites = asyncHandler(async (req, res) => {
   const { email: sendEmail, phone: sendPhone } = res.locals.query;
   const { role, propertyId, maintenanceRole, invites } = res.locals.body;
-  const { organizationId, userId } = res.locals.user as TokenPayload;
+  const { organizationId: orgOpaqueId, userId: userOpaqueId } = res.locals.user as TokenPayload;
+
+  if (!orgOpaqueId) {
+    return res.status(400).json({ error: "Organization context required" });
+  }
+
+  if (!userOpaqueId) {
+    return res.status(401).json({ error: "User context required" });
+  }
+
+  // Resolve internal organizationId from opaqueId
+  const org = await prisma.organization.findUnique({
+    where: { opaqueId: orgOpaqueId },
+    select: { id: true }
+  });
+
+  if (!org) {
+    return res.status(404).json({ error: "Organization not found" });
+  }
+
+  const organizationId = org.id;
+
+  // Resolve internal userId from opaqueId
+  const user = await prisma.user.findUnique({
+    where: { opaqueId: userOpaqueId },
+    select: { id: true }
+  });
+
+  if (!user) {
+    return res.status(401).json({ error: "User not found" });
+  }
+
+  const userId = user.id;
 
   const actualSendEmail = sendEmail !== false;
   const actualSendPhone = sendPhone === true;
 
-  // 1. Validate Property
+  // Validate Property
   const property = await prisma.property.findUnique({
     where: { opaqueId: propertyId },
     select: { id: true, organizationId: true },
@@ -144,9 +204,7 @@ export const bulkSendInvites = asyncHandler(async (req, res) => {
     invites: [] as any[],
   };
 
-  // 2. Process Invites
-  // We use a loop instead of Promise.all to prevent database lock contention 
-  // and to manage individual error states easily.
+  // Process Invites
   for (const item of invites) {
     try {
       // Check for existing user
@@ -178,7 +236,7 @@ export const bulkSendInvites = asyncHandler(async (req, res) => {
           propertyId: property.id,
           maintenanceRole: maintenanceRole ?? null,
           unitNumber: item.unitNumber ?? null,
-          createdBy: userId!,
+          createdBy: userId,
         }
       });
 
@@ -276,7 +334,7 @@ export const acceptInvite = asyncHandler(async (req, res) => {
     }
   });
 
-  // ✅ Validate required fields for NEW users
+  // Validate required fields for NEW users
   if (!existingUser) {
     if (!name) {
       return res.status(400).json({
@@ -292,7 +350,7 @@ export const acceptInvite = asyncHandler(async (req, res) => {
 
   let user: typeof existingUser;
 
-  // ✅ If user exists, validate and add the new role relationship
+  // If user exists, validate and add the new role relationship
   if (existingUser) {
     // Validate user type matches invite
     if (existingUser.userType !== invite.role) {
@@ -357,7 +415,7 @@ export const acceptInvite = asyncHandler(async (req, res) => {
 
     user = existingUser;
   } else {
-    // ✅ New user flow
+    // New user flow
     const passwordHash = await bcrypt.hash(password!, 10);
 
     user = await prisma.$transaction(async (tx) => {
@@ -390,26 +448,18 @@ export const acceptInvite = asyncHandler(async (req, res) => {
     });
   }
 
-  // Build token payload
+  // Build token payload with ONLY opaqueIds
   const tokenPayload: TokenPayload = {
-    userId: user.id,
+    userId: user.opaqueId,
     userType: invite.role,
-    ...(invite.organizationId && { 
-      organizationId: invite.organizationId
-    }),
     ...(invite.organization?.opaqueId && {
-      organizationOpaqueId: invite.organization.opaqueId
+      organizationId: invite.organization.opaqueId
     }),
   };
 
   // Only add propertyId for tenants
-  if (invite.role === "tenant") {
-    if (invite.propertyId) {
-      tokenPayload.propertyId = invite.propertyId;
-    }
-    if (invite.property?.opaqueId) {
-      tokenPayload.propertyOpaqueId = invite.property.opaqueId;
-    }
+  if (invite.role === "tenant" && invite.property?.opaqueId) {
+    tokenPayload.propertyId = invite.property.opaqueId;
   }
 
   // For staff, fetch ALL their properties

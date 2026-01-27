@@ -95,12 +95,24 @@ export const InviteStaffModal = ({
 
   const filteredExisting = useMemo(() => {
     if (!formData.propertyId) return [];
-    return allStaff.filter(s => {
-      const isAlreadyAtProperty = s.property.id === formData.propertyId;
+    
+    // Deduplicate staff by user ID
+    const uniqueStaff = allStaff.reduce((acc, s) => {
+      if (s.property.id === formData.propertyId) return acc; // Skip if already at this property
+      
       const matchesSearch = s.user.email.toLowerCase().includes(searchExisting.toLowerCase()) || 
                             s.user.name?.toLowerCase().includes(searchExisting.toLowerCase());
-      return !isAlreadyAtProperty && matchesSearch;
-    });
+      
+      if (!matchesSearch) return acc;
+      
+      // Only add if we haven't seen this user yet
+      if (!acc.some(existing => existing.user.id === s.user.id)) {
+        acc.push(s);
+      }
+      return acc;
+    }, [] as Staff[]);
+    
+    return uniqueStaff;
   }, [allStaff, formData.propertyId, searchExisting]);
 
   const propertyColumns = [
@@ -390,10 +402,17 @@ export const InviteStaffModal = ({
                             ))
                           ) : (
                             <div className="p-8 text-center text-gray-400 text-xs italic">
-                               No staff found to assign
+                              No staff found to assign
                             </div>
                           )}
                         </div>
+                        {errors.email && (
+                          <div className="mt-2 p-3 bg-red-50 border border-red-100 rounded-lg">
+                            <p className="text-red-600 text-xs font-bold leading-tight">
+                              {errors.email}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                     
