@@ -126,7 +126,7 @@ export const sendInvite = asyncHandler(async (req, res) => {
       maintenanceRole: maintenanceRole ?? null,
       unitNumber: unitNumber ?? null,
       createdBy: userId,
-    },
+    }
   });
 
   // Send delivery
@@ -285,9 +285,14 @@ export const acceptInvite = asyncHandler(async (req, res) => {
   const { token } = res.locals.params;
   const { name, password, unitNumber } = res.locals.body;
 
+  const currentUser = res.locals.user as TokenPayload | undefined;
+
   const invite = await prisma.invite.findUnique({
     where: { token },
-    select: inviteWithRelationsSelect,
+    select: {
+      ...inviteWithRelationsSelect,
+      createdBy: true,
+    },
   });
 
   const validation = validateInvite(invite);
@@ -306,6 +311,33 @@ export const acceptInvite = asyncHandler(async (req, res) => {
       return res.status(400).json({
         error: "Unit number is required for tenant registration",
       });
+    }
+  }
+
+  // NEW: Security checks for authenticated users
+  if (currentUser) {
+    const authUser = await prisma.user.findUnique({
+      where: { opaqueId: currentUser.userId },
+      select: { id: true, email: true, phone: true },
+    });
+
+    if (authUser) {
+      // Prevent self-acceptance
+      if (authUser.id === invite.createdBy) {
+        return res.status(403).json({ 
+          error: "You cannot accept an invite you created" 
+        });
+      }
+
+      // Check if email/phone matches
+      const emailMatch = invite.email && authUser.email === invite.email;
+      const phoneMatch = invite.phone && authUser.phone === invite.phone;
+
+      if (!emailMatch && !phoneMatch) {
+        return res.status(403).json({ 
+          error: "This invite is for a different user. Please log out to accept this invite." 
+        });
+      }
     }
   }
 
@@ -348,7 +380,7 @@ export const acceptInvite = asyncHandler(async (req, res) => {
     }
   }
 
-  let user: typeof existingUser;
+  let user; // CHANGED: Let TypeScript infer the type
 
   // If user exists, validate and add the new role relationship
   if (existingUser) {

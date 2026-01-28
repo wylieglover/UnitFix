@@ -18,8 +18,9 @@ export interface InviteResponse {
     phone: boolean;
   };
   invite: {
-    id: string;
+    id: string;        
     email: string | null;
+    phone: string | null;
     role: InviteRole;
     expiresAt: string;
   };
@@ -38,7 +39,7 @@ export interface BulkInviteItem {
 
 export interface BulkSendInvitePayload {
   role: "org_admin" | "staff" | "tenant";
-  propertyId?: string; // Opaque ID
+  propertyId?: string;
   maintenanceRole?: "manager" | "member";
   invites: BulkInviteItem[];
 }
@@ -48,9 +49,11 @@ export interface BulkInviteResponse {
   successful: number;
   failed: number;
   invites: {
-    id: number;
+    id: string;  
     email: string;
+    phone: string | null; 
     role: string;
+    unitNumber: string | null; 
     expiresAt: string;
   }[];
   errors: {
@@ -60,9 +63,10 @@ export interface BulkInviteResponse {
 }
 
 export interface AcceptInvitePayload {
-  name: string;
-  password: string;
-  unitNumber?: string; // For tenants
+  name?: string;   
+  password?: string;  
+  phone?: string;   
+  unitNumber?: string;
 }
 
 export interface AcceptInviteResponse {
@@ -72,6 +76,7 @@ export interface AcceptInviteResponse {
     id: string;
     name: string;
     email: string | null;
+    phone: string | null; 
     userType: string;
   };
   organization: {
@@ -81,9 +86,37 @@ export interface AcceptInviteResponse {
   property?: {
     id: string;
     name: string;
-  };
-  properties?: Array<{ // For staff with multiple properties
+    street: string;     
+    city: string;
+    state: string | null;
+    zip: string;
+  } | null;
+  properties?: Array<{
     id: string;
     name: string;
   }>;
+}
+
+export interface InviteDetailsResponse {
+  message: string;
+  invite: {
+    id: string;
+    role: InviteRole;
+    email: string | null;
+    phone: string | null;
+    unitNumber: string | null;
+    expiresAt: string;
+    organization: {
+      id: string;
+      name: string;
+    } | null;
+    property: {
+      id: string;
+      name: string;
+      street: string;
+      city: string;
+      state: string | null;
+      zip: string;
+    } | null;
+  };
 }

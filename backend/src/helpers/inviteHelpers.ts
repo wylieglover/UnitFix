@@ -3,6 +3,7 @@ import { Prisma, MaintenanceRole } from "../lib/prisma";
 // Select for invite queries
 export const inviteSelect = {
   id: true,
+  opaqueId: true,
   email: true,
   phone: true,
   role: true,
@@ -64,6 +65,7 @@ export const validateInvite = (invite: InviteWithRelations | null) => {
 
 // Format invite for API response
 export const formatInvite = (invite: InviteWithRelations) => ({
+  id: invite.opaqueId,
   role: invite.role,
   email: invite.email ?? null,
   phone: invite.phone ?? null,
@@ -89,11 +91,13 @@ export const formatInvite = (invite: InviteWithRelations) => ({
 
 // Format minimal invite (for sendInvite response)
 export const formatInviteMinimal = (invite: { 
+  opaqueId: string; 
   role: string; 
   expiresAt: Date; 
   email?: string | null; 
   phone?: string | null 
 }) => ({
+  id: invite.opaqueId, 
   role: invite.role,
   email: invite.email ?? null,
   phone: invite.phone ?? null,
@@ -101,7 +105,7 @@ export const formatInviteMinimal = (invite: {
 });
 
 export const formatInviteBatchItem = (invite: Prisma.InviteGetPayload<{ select: typeof inviteSelect }>) => ({
-  id: invite.id, // Internal ID
+  id: invite.opaqueId,
   email: invite.email,
   phone: invite.phone,
   role: invite.role,

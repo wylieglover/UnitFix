@@ -26,6 +26,7 @@ import { Staff } from './pages/Staff';
 import { StaffDetail } from './pages/StaffDetail';
 import { Tickets } from './pages/Tickets';
 import { TicketDetail } from './pages/TicketDetail';
+import { InviteAccept } from './pages/InviteAccept';
 
 import './index.css';
 
@@ -37,6 +38,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route element={<BaseLayout />}>
             <Route path="/" element={<Home />} />
             
+            {/* PUBLIC INVITE ACCEPTANCE */}
+            <Route path="/invites/:token/accept" element={<InviteAccept />} />
+
             {/* GUEST ONLY ROUTES: Logged in users get kicked out of these */}
             <Route element={<GuestGuard />}>
               <Route path="/signin" element={<SignIn />} />

@@ -39,7 +39,7 @@ export const createProperty = asyncHandler(async (req, res, next) => {
 export const listProperties = asyncHandler(async (req, res, next) => {
   const { organization, user } = res.locals;
   const { status } = res.locals.query;
-  const { userId, userType } = user as TokenPayload;
+  const { userId: userOpaqueId, userType } = user as TokenPayload;
 
   const whereClause: any = {
     organizationId: organization.id,
@@ -53,7 +53,11 @@ export const listProperties = asyncHandler(async (req, res, next) => {
   // If staff, only show properties they're assigned to
   if (userType === "staff") {
     whereClause.staff = {
-      some: { userId }
+      some: { 
+        user: {
+          opaqueId: userOpaqueId  // Filter by opaqueId instead of userId
+        }
+      }
     };
   }
 

@@ -174,6 +174,7 @@ model MaintenanceRequest {
 
 model Invite {
   id              Int              @id @default(autoincrement())
+  opaqueId        String           @unique @default(dbgenerated("gen_random_uuid()")) @map("opaque_id")
   email           String?          @db.Citext
   phone           String?
   role            UserType
@@ -193,6 +194,7 @@ model Invite {
   @@index([email])
   @@index([phone])
   @@index([token])
+  @@index([opaqueId])
   @@map("invites")
 }
 
