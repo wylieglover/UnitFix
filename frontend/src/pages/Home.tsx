@@ -64,7 +64,7 @@ export const Home = () => {
               <ul className="mt-3 space-y-2 text-sm text-gray-600">
                 <li>• Faster than portals or email</li>
                 <li>• Photos auto-attached to tickets</li>
-                <li>• One number per property</li>
+                <li>• One number per organization</li>
               </ul>
             </div>
           </div>
@@ -78,7 +78,7 @@ export const Home = () => {
             ["Text & photo ingestion", "Media stored securely and attached automatically."],
             ["Automatic triage", "Priority and category inferred from content."],
             ["Per-org phone number", "Provision or swap numbers instantly."],
-            ["Property matching", "Know the building and unit automatically."],
+            ["Property matching", "Know the unit automatically."],
             ["Subdomain & SSO", "Google Sign-In with role-based access."],
             ["Built for speed", "Instant search, filters, mobile-ready."],
           ].map(([title, desc]) => (
@@ -100,9 +100,9 @@ export const Home = () => {
         <div className="mt-8 grid gap-6 sm:grid-cols-3">
           {[
             ["1", "Create an organization", "Set up your company and assign an owner."],
-            ["2", "Add properties", "Create properties and add units."],
-            ["3", "Invite staff and tenants", "Send invitations for role-based access."],
-            ["4", "Connect numbers", "Provision a Twilio number for each property."],
+            ["2", "Connect number", "Provision a Twilio number for the organization."],
+            ["3", "Add properties", "Create properties to invite staff and tenants."],
+            ["4", "Invite staff and tenants", "Send invitations for role-based access."],
             ["5", "Share the number", "Tenants text directly to create tickets."],
           ].map(([step, title, desc]) => (
             <div key={step} className="rounded-xl border border-gray-100 bg-white/70 p-6 shadow-sm backdrop-blur-sm">
