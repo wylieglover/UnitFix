@@ -11,7 +11,7 @@ export const Navbar = () => {
   const getHomeRoute = () => {
     if (!user || !user.organizationId) return "/";
 
-    const orgId = user.organizationOpaqueId;
+    const orgId = user.organizationId;
 
     switch (user.userType) {
       case "org_admin":

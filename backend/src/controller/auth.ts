@@ -74,25 +74,25 @@ export const login = asyncHandler(async (req, res, next) => {
     return res.status(403).json({ error: "Account has been deactivated" });
   }
 
-  // ✅ Build token payload with ONLY opaqueIds
+  // Build token payload with ONLY opaqueIds
   const tokenPayload: TokenPayload = {
-    userId: user.opaqueId, // ✅ Changed from user.id
+    userId: user.opaqueId, 
     userType: user.userType,
   };
 
   if (user.orgAdmin?.organization) {
-    tokenPayload.organizationId = user.orgAdmin.organization.opaqueId; // ✅ Changed
+    tokenPayload.organizationId = user.orgAdmin.organization.opaqueId;
   } else if (user.propertyStaff.length > 0) {
     const firstStaff = user.propertyStaff[0];
     if (firstStaff?.property) {
-      tokenPayload.propertyId = firstStaff.property.opaqueId; // ✅ Changed
+      tokenPayload.propertyId = firstStaff.property.opaqueId; 
       if (firstStaff.property.organization) {
-        tokenPayload.organizationId = firstStaff.property.organization.opaqueId; // ✅ Changed
+        tokenPayload.organizationId = firstStaff.property.organization.opaqueId; 
       }
     }
   } else if (user.tenant?.property) {
-    tokenPayload.propertyId = user.tenant.property.opaqueId; // ✅ Changed
-    tokenPayload.organizationId = user.tenant.property.organization.opaqueId; // ✅ Changed
+    tokenPayload.propertyId = user.tenant.property.opaqueId;
+    tokenPayload.organizationId = user.tenant.property.organization.opaqueId;
   }
 
   const { accessToken } = await createSessionAndTokens(tokenPayload, req, res);
@@ -225,5 +225,39 @@ export const logout = asyncHandler(async (req, res, next) => {
 
   return res.status(200).json({
     message: "Logged out successfully",
+  });
+});
+
+export const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = res.locals.body;
+  const { userId } = res.locals.user as TokenPayload;
+
+  // Get user with password hash
+  const user = await prisma.user.findUnique({
+    where: { opaqueId: userId },
+    select: { id: true, passwordHash: true },
+  });
+
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  // Verify current password
+  const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isValid) {
+    return res.status(401).json({ error: "Current password is incorrect" });
+  }
+
+  // Hash new password
+  const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+  // Update password
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: newPasswordHash },
+  });
+
+  return res.status(200).json({
+    message: "Password changed successfully",
   });
 });
