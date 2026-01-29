@@ -100,6 +100,9 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     openRequestCount,
     inProgressRequestCount,
     completedRequestCount,
+    urgentUnassignedCount, 
+    propertiesWithoutStaff, 
+    pendingInvitesCount, 
   ] = await Promise.all([
     // Count active properties
     prisma.property.count({
@@ -161,6 +164,37 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         archivedAt: null,
       },
     }),
+
+    // Count urgent tickets without assignee
+    prisma.maintenanceRequest.count({
+      where: {
+        property: {
+          organizationId: organization.id,
+        },
+        priority: "urgent",
+        assignedTo: null,
+        status: { in: ["open", "in_progress"] },
+        archivedAt: null,
+      },
+    }),
+
+    // Count properties without any staff
+    prisma.property.count({
+      where: {
+        organizationId: organization.id,
+        archivedAt: null,
+        staff: { none: {} },
+      },
+    }),
+
+    // Count pending invites
+    prisma.invite.count({
+      where: {
+        organizationId: organization.id,
+        acceptedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+    }),
   ]);
 
   return res.status(200).json({
@@ -178,6 +212,12 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         completed: completedRequestCount,
         total: openRequestCount + inProgressRequestCount + completedRequestCount,
       },
+    },
+    // Alerts section
+    alerts: {
+      urgentUnassigned: urgentUnassignedCount,
+      propertiesWithoutStaff: propertiesWithoutStaff,
+      pendingInvites: pendingInvitesCount,
     },
   });
 });

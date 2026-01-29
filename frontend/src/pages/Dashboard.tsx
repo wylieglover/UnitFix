@@ -1,12 +1,14 @@
 // src/pages/Dashboard.tsx
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "../components/ui/Card";
 import { organizationService } from "../features/organizations/services/organizationService";
 import type { DashboardStats } from "../features/organizations/types/organization.types";
+import { AlertTriangle, Users, Mail } from "lucide-react";
 
 export const Dashboard = () => {
   const { organizationId } = useParams<{ organizationId: string }>();
+  const navigate = useNavigate();
   const [data, setData] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +50,10 @@ export const Dashboard = () => {
     );
   }
 
+  const hasAlerts = data.alerts.urgentUnassigned > 0 || 
+                    data.alerts.propertiesWithoutStaff > 0 || 
+                    data.alerts.pendingInvites > 0;
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 p-6">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -63,6 +69,48 @@ export const Dashboard = () => {
           As of: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
         </div>
       </header>
+
+      {/* Alerts Section */}
+      {hasAlerts && (
+        <section>
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-400">
+            Alerts & Notifications
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
+            {data.alerts.urgentUnassigned > 0 && (
+              <AlertCard
+                icon={<AlertTriangle className="text-red-600" size={20} />}
+                title="Urgent Unassigned"
+                count={data.alerts.urgentUnassigned}
+                description="Critical tickets need immediate attention"
+                onClick={() => navigate(`/organizations/${organizationId}/tickets`)}
+                color="red"
+              />
+            )}
+            
+            {data.alerts.propertiesWithoutStaff > 0 && (
+              <AlertCard
+                icon={<Users className="text-amber-600" size={20} />}
+                title="Properties Without Staff"
+                count={data.alerts.propertiesWithoutStaff}
+                description="Assign maintenance staff to these properties"
+                onClick={() => navigate(`/organizations/${organizationId}/properties`)}
+                color="amber"
+              />
+            )}
+            
+            {data.alerts.pendingInvites > 0 && (
+              <AlertCard
+                icon={<Mail className="text-blue-600" size={20} />}
+                title="Pending Invites"
+                count={data.alerts.pendingInvites}
+                description="Invitations waiting to be accepted"
+                color="blue"
+              />
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Resource Overview */}
       <section>
@@ -125,3 +173,44 @@ const StatCard = ({ title, value, color = "text-gray-900", bgColor = "bg-white",
     )}
   </Card>
 );
+
+interface AlertCardProps {
+  icon: React.ReactNode;
+  title: string;
+  count: number;
+  description: string;
+  onClick?: () => void;
+  color: "red" | "amber" | "blue";
+}
+
+const AlertCard = ({ icon, title, count, description, onClick, color }: AlertCardProps) => {
+  const colorClasses = {
+    red: "bg-red-50 border-red-200 hover:bg-red-100",
+    amber: "bg-amber-50 border-amber-200 hover:bg-amber-100",
+    blue: "bg-blue-50 border-blue-200 hover:bg-blue-100",
+  };
+
+  const textColorClasses = {
+    red: "text-red-900",
+    amber: "text-amber-900",
+    blue: "text-blue-900",
+  };
+
+  return (
+    <Card 
+      className={`${colorClasses[color]} border p-4 transition-all ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex-shrink-0 mt-1">{icon}</div>
+        <div className="flex-1">
+          <div className="flex items-baseline gap-2">
+            <h3 className={`text-sm font-bold ${textColorClasses[color]}`}>{title}</h3>
+            <span className={`text-2xl font-extrabold ${textColorClasses[color]}`}>{count}</span>
+          </div>
+          <p className="mt-1 text-xs text-gray-600">{description}</p>
+        </div>
+      </div>
+    </Card>
+  );
+};

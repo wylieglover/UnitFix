@@ -41,9 +41,13 @@ export type DashboardStats = {
       total: number;
     };
   };
+  alerts: {
+    urgentUnassigned: number;
+    propertiesWithoutStaff: number;
+    pendingInvites: number;
+  };
 };
 
-// NEW TYPES
 export type OrganizationDetails = {
   organization: {
     id: string;

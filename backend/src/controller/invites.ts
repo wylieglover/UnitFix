@@ -380,7 +380,7 @@ export const acceptInvite = asyncHandler(async (req, res) => {
     }
   }
 
-  let user; // CHANGED: Let TypeScript infer the type
+  let user;
 
   // If user exists, validate and add the new role relationship
   if (existingUser) {
