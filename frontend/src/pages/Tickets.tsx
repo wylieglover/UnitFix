@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ticketService } from "../features/tickets/services/ticketService";
+import { CreateTicketModal } from "../features/tickets/components/CreateTicketModal";
 import { Table } from "../components/ui/Table";
 import { FilterBar } from "../components/ui/FilterBar";
-import { StatusBadge } from "../components/ui/StatusBadge"; // Import your component
+import { StatusBadge } from "../components/ui/StatusBadge";
+import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import { 
   ClipboardList, 
-  ChevronRight
+  ChevronRight,
+  Plus
 } from "lucide-react";
 import type { Ticket, TicketStatus, TicketPriority } from "../features/tickets/types/ticket.types";
 
@@ -23,38 +26,38 @@ export const Tickets = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
   // Filter States
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [archiveFilter, setArchiveFilter] = useState<ArchiveFilter>('active');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
 
+  const loadTickets = async () => {
+    if (!organizationId || authLoading) return;
+    if (isTenant && !propertyId) return;
+
+    try {
+      setLoading(true);
+      const data = await ticketService.list(
+        organizationId, 
+        isTenant ? propertyId : undefined,
+        {
+          status: statusFilter,
+          priority: priorityFilter === 'all' ? undefined : priorityFilter,
+          archived: archiveFilter,
+          ...(isTenant && userId && { relatedTo: userId })
+        }
+      );
+      setTickets(data.requests);
+    } catch (err) {
+      console.error("Error loading tickets", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadTickets = async () => {
-      if (!organizationId || authLoading) return;
-      if (isTenant && !propertyId) return;
-
-      try {
-        setLoading(true);
-        const data = await ticketService.list(
-          organizationId, 
-          isTenant ? propertyId : undefined,
-          {
-            status: statusFilter,
-            priority: priorityFilter === 'all' ? undefined : priorityFilter,
-            archived: archiveFilter,
-            // For tenants, show all tickets related to them (using userId which is the opaqueId)
-            ...(isTenant && userId && { relatedTo: userId })
-          }
-        );
-        setTickets(data.requests);
-      } catch (err) {
-        console.error("Error loading tickets", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadTickets();
   }, [organizationId, propertyId, isTenant, authLoading, statusFilter, archiveFilter, priorityFilter, userId]);
 
@@ -167,6 +170,15 @@ export const Tickets = () => {
             {loading ? "Loading tickets..." : `Tracking ${tickets.length} tickets.`}
           </p>
         </div>
+        <Button
+          onClick={() => setIsCreateModalOpen(true)}
+          variant="primary"
+          size="md"
+          className="flex items-center gap-2"
+        >
+          <Plus size={18} />
+          New Request
+        </Button>
       </div>
 
       <FilterBar
@@ -194,6 +206,21 @@ export const Tickets = () => {
           }}
         />
       </div>
+
+      {/* Create Ticket Modal */}
+      {isCreateModalOpen && (
+        <CreateTicketModal
+          organizationId={organizationId!}
+          propertyId={isTenant ? propertyId : undefined}
+          isTenant={isTenant}
+          tenantUserId={isTenant ? userId : undefined}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={() => {
+            setIsCreateModalOpen(false);
+            loadTickets();
+          }}
+        />
+      )}
     </div>
   );
 };
