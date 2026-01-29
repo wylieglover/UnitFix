@@ -182,6 +182,14 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
   });
 });
 
+export const getOrganizationDetails = asyncHandler(async (req, res) => {
+  const { organization } = res.locals;
+
+  return res.status(200).json({
+    organization: formatOrganization(organization),
+  });
+});
+
 export const provisionOrganizationPhone = asyncHandler(async (req, res) => {
   const { organization } = res.locals;
   const { areaCode } = res.locals.body;

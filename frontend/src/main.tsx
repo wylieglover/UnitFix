@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 // Guards
 import { GuestGuard } from './components/auth/GuestGuard';
+import { ProvisioningGuard } from './components/auth/ProvisioningGuard';
 import { NotFound } from './pages/NotFound';
 
 // Layouts
@@ -27,6 +28,7 @@ import { StaffDetail } from './pages/StaffDetail';
 import { Tickets } from './pages/Tickets';
 import { TicketDetail } from './pages/TicketDetail';
 import { InviteAccept } from './pages/InviteAccept';
+import { PhoneSetup } from './pages/PhoneSetup';
 
 import './index.css';
 
@@ -49,32 +51,38 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
             {/* PROTECTED ROUTES: DashboardLayout handles the Auth check */}
             <Route element={<DashboardLayout />}>
-              <Route path="/organizations/:organizationId/dashboard" element={<Dashboard />} />
-              
-              <Route path="/organizations/:organizationId/tenants" element={<Tenants />} />
-              <Route path="/organizations/:organizationId/staff" element={<Staff />} />
-              <Route path="/organizations/:organizationId/tickets" element={<Tickets />} />
+              {/* PROVISIONING GUARD: Checks if org has phone number provisioned */}
+              <Route element={<ProvisioningGuard />}>
+                <Route path="/organizations/:organizationId/dashboard" element={<Dashboard />} />
+                
+                <Route path="/organizations/:organizationId/tenants" element={<Tenants />} />
+                <Route path="/organizations/:organizationId/staff" element={<Staff />} />
+                <Route path="/organizations/:organizationId/tickets" element={<Tickets />} />
 
-              <Route path="/organizations/:organizationId/properties" element={<Properties />} />
-              <Route 
-                path="/organizations/:organizationId/properties/:propertyId" 
-                element={<PropertyDetail />} 
-              />
+                <Route path="/organizations/:organizationId/properties" element={<Properties />} />
+                <Route 
+                  path="/organizations/:organizationId/properties/:propertyId" 
+                  element={<PropertyDetail />} 
+                />
 
-              <Route 
-                path="/organizations/:organizationId/properties/:propertyId/staff/:userId" 
-                element={<StaffDetail />} 
-              />
+                <Route 
+                  path="/organizations/:organizationId/properties/:propertyId/staff/:userId" 
+                  element={<StaffDetail />} 
+                />
 
-              <Route 
-                path="/organizations/:organizationId/properties/:propertyId/tenants/:userId" 
-                element={<TenantDetail />} 
-              />
+                <Route 
+                  path="/organizations/:organizationId/properties/:propertyId/tenants/:userId" 
+                  element={<TenantDetail />} 
+                />
 
-              <Route 
-                path="/organizations/:organizationId/properties/:propertyId/tickets/:ticketId" 
-                element={<TicketDetail />} 
-              />
+                <Route 
+                  path="/organizations/:organizationId/properties/:propertyId/tickets/:ticketId" 
+                  element={<TicketDetail />} 
+                />
+              </Route>
+
+              {/* PHONE SETUP: Outside ProvisioningGuard so users can access it to provision */}
+              <Route path="/organizations/:organizationId/setup/phone" element={<PhoneSetup />} />
 
               {/* UNIVERSAL 404 */}
               <Route path="*" element={<NotFound />} />

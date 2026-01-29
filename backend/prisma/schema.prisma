@@ -98,7 +98,7 @@ model Property {
   state                  String?
   zip                    String
   country                String       @default("USA")
-  maintenancePhoneNumber String?      @unique @map("maintenance_phone_number")
+  maintenancePhoneNumber String?      @map("maintenance_phone_number")
 
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")

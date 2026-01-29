@@ -3,7 +3,7 @@ import express from "express";
 import { propertiesRouter } from "./properties";
 import { validate } from "../middleware/validate";
 import { organizationRegistrationSchema, organizationIdParamSchema, provisionPhoneSchema } from "../schema/organizations";
-import { register, getDashboard, provisionOrganizationPhone } from "../controller/organizations";
+import { register, getDashboard, provisionOrganizationPhone, getOrganizationDetails } from "../controller/organizations";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { resolveOrganization } from "../middleware/resolveOrganization";
@@ -17,6 +17,11 @@ organizationsRouter.use(
   validate({ params: organizationIdParamSchema }),
   authenticate,
   resolveOrganization
+);
+
+organizationsRouter.get(
+  "/:organizationId",
+  getOrganizationDetails
 );
 
 organizationsRouter.get(

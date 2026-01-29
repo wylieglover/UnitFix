@@ -1,5 +1,5 @@
 // src/features/organizations/types/organization.types.ts
-import type { UserType } from "../../auth/types/auth.types"; // Import the type we fixed earlier
+import type { UserType } from "../../auth/types/auth.types";
 
 export type RegisterOrganizationPayload = {
   organizationName: string;
@@ -21,7 +21,7 @@ export type RegisterOrganizationResponse = {
     id: string;
     email: string;
     name: string;
-    userType: UserType; // Strict type instead of string
+    userType: UserType;
   };
 };
 
@@ -41,4 +41,30 @@ export type DashboardStats = {
       total: number;
     };
   };
+};
+
+// NEW TYPES
+export type OrganizationDetails = {
+  organization: {
+    id: string;
+    name: string;
+    hasPhone: boolean;
+    phoneNumber: string | null;
+    contactInfo?: string;
+  };
+};
+
+export type ProvisionPhonePayload = {
+  areaCode: string;
+};
+
+export type ProvisionPhoneResponse = {
+  message: string;
+  organization: {
+    id: string;
+    name: string;
+    hasPhone: boolean;
+    phoneNumber: string | null;
+  };
+  phoneNumber: string;
 };
