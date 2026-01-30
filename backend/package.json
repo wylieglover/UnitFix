@@ -7,7 +7,9 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx,json}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,json}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,json}\"",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate"
   },
   "keywords": [],
   "author": "",
@@ -38,6 +40,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "groq-sdk": "^0.37.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.17.1",
     "resend": "^6.8.0",
