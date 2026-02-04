@@ -6,7 +6,6 @@ import { staffService } from "../features/staff/services/staffService";
 import { Button } from "../components/ui/Button";
 import { BackButton } from "../components/ui/BackButton";
 import { ArchiveButton } from "../components/ui/ArchiveButton";
-import { TicketTimeline } from "../features/tickets/components/TicketTimeline";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { 
   Clock, 
@@ -349,10 +348,6 @@ export const TicketDetail = () => {
               </div>
             )}
           </div>
-
-          {ticket.comments && ticket.comments.length > 0 && (
-            <TicketTimeline comments={ticket.comments} />
-          )}
         </div>
         
         {/* Sidebar Actions - Only for staff/admin/owner */}
