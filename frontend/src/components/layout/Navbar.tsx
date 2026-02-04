@@ -20,7 +20,7 @@ export const Navbar = () => {
       case "staff":
         return `/organizations/${orgId}/properties`;
       case "tenant":
-        return `/organizations/${orgId}/tenants`;
+        return `/organizations/${orgId}/tickets`;
       default:
         return "/";
     }
