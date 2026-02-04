@@ -287,7 +287,7 @@ export const CreateTicketModal = ({
             {!isTenant && (
               <div className="space-y-3 text-left">
                 <label className="block text-sm font-semibold text-gray-700">
-                  Tenant / Unit <span className="text-gray-400">(optional)</span>
+                  Tenant / Unit
                 </label>
                 <SearchInput
                   value={searchTenant}

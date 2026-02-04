@@ -119,13 +119,13 @@ export const Dashboard = () => {
           <StatCard title="Properties" value={data.stats.properties} />
           <StatCard title="Staff Members" value={data.stats.staff} />
           <StatCard title="Total Tenants" value={data.stats.tenants} />
-          <StatCard title="Total Requests" value={data.stats.requests.total} />
+          <StatCard title="Total Tickets" value={data.stats.requests.total} />
         </div>
       </section>
 
-      {/* Maintenance Request Status */}
+      {/* Ticket Status */}
       <section>
-        <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-400">Request Status</h2>
+        <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-400">Ticket Status</h2>
         <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-3">
           <StatCard 
             title="Open" 

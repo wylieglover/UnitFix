@@ -127,7 +127,7 @@ export const TenantDetail = () => {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800">
           <AlertCircle size={20} className="text-amber-600" />
           <div className="text-sm font-medium">
-            This tenant is currently <strong>archived</strong>. They can no longer access the property portal or submit maintenance requests.
+            This tenant is currently <strong>archived</strong>. They can no longer access the property portal or submit tickets.
           </div>
         </div>
       )}
@@ -215,11 +215,11 @@ export const TenantDetail = () => {
 
       {/* Content Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Maintenance Requests Table */}
+        {/* Tickets Table */}
         <div className="md:col-span-2 space-y-4">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-              <h3 className="font-bold text-gray-900">Maintenance Requests</h3>
+              <h3 className="font-bold text-gray-900">Tickets</h3>
               <div className="px-3 py-1 bg-gray-50 rounded-full text-xs font-bold text-gray-500">
                 {tenantTickets.length} Total
               </div>
@@ -232,8 +232,8 @@ export const TenantDetail = () => {
               rowKey={(t) => t.code}
               onRowClick={(t) => navigate(`/organizations/${organizationId}/properties/${propertyId}/tickets/${t.code}`)}
               emptyState={{ 
-                title: "No maintenance requests", 
-                description: "This tenant hasn't submitted any maintenance requests yet.", 
+                title: "No tickets", 
+                description: "This tenant hasn't submitted any tickets yet.", 
                 icon: <ClipboardList className="h-12 w-12 text-gray-200" /> 
               }}
             />
@@ -249,8 +249,8 @@ export const TenantDetail = () => {
             </div>
             <p className="text-indigo-800/80 text-xs leading-relaxed">
               {isArchived 
-                ? "This tenant's access has been revoked. They cannot log in or submit maintenance requests."
-                : "This tenant can access the property portal to submit and track maintenance requests for their unit."
+                ? "This tenant's access has been revoked. They cannot log in or submit tickets."
+                : "This tenant can access the property portal to submit and track tickets for their unit."
               }
             </p>
           </div>

@@ -1,5 +1,15 @@
 // src/pages/Home.tsx
+import { DemoAccounts } from "../components/ui/DemoAccounts";
+import { useNavigate } from "react-router-dom";
+
 export const Home = () => {
+  const navigate = useNavigate();
+
+  const handleSelectDemoAccount = (email: string, password: string) => {
+    // Navigate to login with state to auto-fill
+    navigate('/signin', { state: { email, password } });
+  };
+
   return (
     <div className="flex flex-col items-center">
       {/* hero */}
@@ -23,14 +33,13 @@ export const Home = () => {
               href="/signup"
               className="inline-flex items-center rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-all active:scale-95"
             >
-              Get started — it's free
+              Request access
             </a>
-
             <a
-              href="#how-it-works"
+              href="#demo"
               className="inline-flex items-center rounded-lg px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
             >
-              See how it works
+              Try the demo
             </a>
           </div>
 
@@ -71,20 +80,39 @@ export const Home = () => {
         </div>
       </section>
 
+      {/* demo section */}
+      <section id="demo" className="w-full max-w-5xl px-6 py-16 bg-gradient-to-b from-blue-50/50 to-transparent">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900">
+            Try UnitFix{" "}
+            <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+              Right Now
+            </span>
+          </h2>
+          <p className="mt-3 text-base text-gray-600">
+            No signup required. Click any demo account below to explore the platform.
+          </p>
+        </div>
+
+        <div className="max-w-3xl mx-auto">
+          <DemoAccounts onSelectAccount={handleSelectDemoAccount} />
+        </div>
+      </section>
+
       {/* features */}
       <section className="w-full max-w-6xl px-6 py-12">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            ["Text & photo ingestion", "Media stored securely and attached automatically."],
-            ["Automatic triage", "Priority and category inferred from content."],
+            ["Text-to-ticket", "Tenants text issues, tickets auto-created."],
+            ["Staff collaboration", "Assign, merge, and track tickets seamlessly."],
             ["Per-org phone number", "Provision or swap numbers instantly."],
             ["Property matching", "Know the unit automatically."],
-            ["Subdomain & SSO", "Google Sign-In with role-based access."],
+            ["Role-based access", "Different views for owners, staff, and tenants."],
             ["Built for speed", "Instant search, filters, mobile-ready."],
           ].map(([title, desc]) => (
-            <div key={title} className="rounded-xl border border-gray-100 bg-white/70 p-6 shadow-sm backdrop-blur-sm">
+            <div key={title} className="rounded-xl border border-gray-100 bg-white/70 p-6 shadow-sm backdrop-blur-sm flex flex-col">
               <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-              <p className="mt-2 text-sm text-gray-600">{desc}</p>
+              <p className="mt-2 text-sm text-gray-600 flex-1">{desc}</p>
             </div>
           ))}
         </div>
@@ -99,11 +127,12 @@ export const Home = () => {
 
         <div className="mt-8 grid gap-6 sm:grid-cols-3">
           {[
-            ["1", "Create an organization", "Set up your company and assign an owner."],
-            ["2", "Connect number", "Provision a Twilio number for the organization."],
-            ["3", "Add properties", "Create properties to invite staff and tenants."],
-            ["4", "Invite staff and tenants", "Send invitations for role-based access."],
-            ["5", "Share the number", "Tenants text directly to create tickets."],
+            ["1", "Create organization", "Set up your company and assign an owner."],
+            ["2", "Provision number", "Get a dedicated phone number for tenants."],
+            ["3", "Add properties", "Create properties to manage across your portfolio."],
+            ["4", "Invite staff", "Add maintenance team with role-based access."],
+            ["5", "Invite tenants", "Tenants get access to their specific units."],
+            ["6", "Start receiving", "Tenants text issues, tickets auto-created."],
           ].map(([step, title, desc]) => (
             <div key={step} className="rounded-xl border border-gray-100 bg-white/70 p-6 shadow-sm backdrop-blur-sm">
               <div className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-md shadow-blue-100">
@@ -120,7 +149,7 @@ export const Home = () => {
             href="/signup"
             className="inline-flex items-center rounded-lg bg-blue-600 px-8 py-4 text-sm font-bold text-white shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
           >
-            Get started today
+            Request access today
           </a>
         </div>
       </section>

@@ -207,7 +207,7 @@ export const Properties = () => {
       >
         <div className="p-1">
           <p className="text-sm text-gray-500 mb-6">
-            Adding a property allows you to assign staff and invite tenants to submit maintenance requests.
+            Adding a property allows you to assign staff and invite tenants to submit tickets.
           </p>
           <CreatePropertyForm
             organizationId={organizationId!}

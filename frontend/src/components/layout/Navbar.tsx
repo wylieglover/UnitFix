@@ -2,7 +2,7 @@
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "../ui/Button";
 import { Link } from "react-router-dom";
-import { Home } from "lucide-react"; // Optional: adding an icon for visual flair
+import { Home, Wrench } from "lucide-react"; // Optional: adding an icon for visual flair
 
 export const Navbar = () => {
   const { isAuthenticated, user, loading, logout } = useAuth();
@@ -31,7 +31,7 @@ export const Navbar = () => {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
         <Link title="UnitFix Home" to="/" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
           <div className="h-7 w-7 rounded-md bg-blue-600 shadow-sm shadow-blue-200 flex items-center justify-center">
-            <div className="h-3 w-3 border-2 border-white rounded-sm" />
+            <Wrench className="h-4 w-4 text-white" />
           </div>
           <span className="text-lg font-bold tracking-tight text-gray-900">UnitFix</span>
         </Link>
@@ -64,7 +64,7 @@ export const Navbar = () => {
                 </Link>
                 <Link to="/signup">
                   <Button variant="primary" size="sm">
-                    Get Started
+                    Request Access
                   </Button>
                 </Link>
               </div>

@@ -10,7 +10,7 @@ import { resolveOrganization } from "../middleware/resolveOrganization";
 
 const organizationsRouter = express.Router();
 
-organizationsRouter.post("/register", validate({ body: organizationRegistrationSchema }), register);
+// organizationsRouter.post("/register", validate({ body: organizationRegistrationSchema }), register);
 
 organizationsRouter.use(
   "/:organizationId",

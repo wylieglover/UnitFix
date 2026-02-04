@@ -10,7 +10,12 @@ export const Footer = () => {
           <a href="/terms" className="hover:text-gray-700 transition-colors">
             Terms
           </a>
-          <a href="mailto:support@unitfix.app" className="hover:text-gray-700 transition-colors">
+          <a 
+            href="https://mail.google.com/mail/?view=cm&fs=1&to=unitfixbusiness@gmail.com&su=UnitFix%20Support%20Request"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-gray-700 transition-colors"
+          >
             Support
           </a>
         </div>

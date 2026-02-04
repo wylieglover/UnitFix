@@ -6,6 +6,7 @@ import { staffService } from "../features/staff/services/staffService";
 import { Button } from "../components/ui/Button";
 import { BackButton } from "../components/ui/BackButton";
 import { ArchiveButton } from "../components/ui/ArchiveButton";
+import { TicketTimeline } from "../features/tickets/components/TicketTimeline";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { 
   Clock, 
@@ -175,7 +176,7 @@ export const TicketDetail = () => {
   const priorityDescriptions: Record<TicketPriority, string> = {
     urgent: "Urgent priority - requires immediate attention from maintenance staff.",
     high: "High priority - should be addressed as soon as possible.",
-    medium: "Medium priority - normal maintenance request timeline.",
+    medium: "Medium priority - normal ticket timeline.",
     low: "Low priority - can be scheduled during routine maintenance.",
   };
 
@@ -186,7 +187,7 @@ export const TicketDetail = () => {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800">
           <AlertCircle size={20} className="text-amber-600" />
           <div className="text-sm font-medium">
-            This maintenance request is <strong>archived</strong> and has been removed from active views.
+            This ticket is <strong>archived</strong> and has been removed from active views.
           </div>
         </div>
       )}
@@ -202,7 +203,7 @@ export const TicketDetail = () => {
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div className="space-y-3">
               <BackButton 
-                label="Maintenance Board" 
+                label="Ticket Board" 
                 fallbackPath={`/organizations/${organizationId}/properties/${propertyId}/tickets`} 
               />
               
@@ -225,7 +226,7 @@ export const TicketDetail = () => {
               {canArchive && (
                 <ArchiveButton 
                   isArchived={isArchived} 
-                  entityName="Request" 
+                  entityName="Ticket" 
                   onConfirm={handleArchiveToggle} 
                 />
               )}
@@ -348,8 +349,12 @@ export const TicketDetail = () => {
               </div>
             )}
           </div>
-        </div>
 
+          {ticket.comments && ticket.comments.length > 0 && (
+            <TicketTimeline comments={ticket.comments} />
+          )}
+        </div>
+        
         {/* Sidebar Actions - Only for staff/admin/owner */}
         <div className="space-y-6">
           {canManage && (
@@ -447,7 +452,7 @@ export const TicketDetail = () => {
                   disabled={isArchived || updating || ticket.status === 'cancelled' || ticket.status === 'completed'}
                   onClick={() => handleStatusChange('cancelled')}
                 >
-                  <XCircle size={16} /> Cancel Request
+                  <XCircle size={16} /> Cancel Ticket
                 </Button>
               </div>
             </>
@@ -458,15 +463,15 @@ export const TicketDetail = () => {
             <div className="bg-indigo-50 rounded-2xl p-6 border border-indigo-100">
               <div className="flex items-center gap-2 text-indigo-900 font-bold mb-2 text-sm">
                 <AlertCircle size={16} />
-                <h4>Request Status</h4>
+                <h4>Ticket Status</h4>
               </div>
               <p className="text-indigo-800/80 text-xs leading-relaxed mb-3">
-                Your maintenance request is currently <strong>{ticket.status.replace('_', ' ')}</strong> with <strong>{ticket.priority}</strong> priority.
+                Your ticket is currently <strong>{ticket.status.replace('_', ' ')}</strong> with <strong>{ticket.priority}</strong> priority.
               </p>
               <p className="text-indigo-800/80 text-xs leading-relaxed">
                 {ticket.assignee 
-                  ? `This request has been assigned to ${ticket.assignee.name} from our maintenance team.`
-                  : "This request is pending assignment to a maintenance team member."
+                  ? `This ticket has been assigned to ${ticket.assignee.name} from our maintenance team.`
+                  : "This ticket is pending assignment to a maintenance team member."
                 }
               </p>
             </div>

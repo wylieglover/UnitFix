@@ -165,7 +165,7 @@ export const Tickets = () => {
     <div className="max-w-7xl mx-auto p-8 space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Maintenance Board</h1>
+          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Ticket Board</h1>
           <p className="text-gray-500">
             {loading ? "Loading tickets..." : `Tracking ${tickets.length} tickets.`}
           </p>
@@ -177,7 +177,7 @@ export const Tickets = () => {
           className="flex items-center gap-2"
         >
           <Plus size={18} />
-          New Request
+          New Ticket
         </Button>
       </div>
 
@@ -201,7 +201,7 @@ export const Tickets = () => {
           }}
           emptyState={{
             title: searchTerm || statusFilter !== 'all' ? "No tickets match filters" : "No maintenance tickets",
-            description: "Maintenance requests from tenants and staff will appear here.",
+            description: "Tickets from tenants and staff will appear here.",
             icon: <ClipboardList className="h-12 w-12 text-gray-200" />
           }}
         />
