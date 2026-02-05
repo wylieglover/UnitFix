@@ -226,6 +226,7 @@ export const listMaintenanceRequests = asyncHandler(async (req, res, next) => {
   });
 });
 
+
 export const getMaintenanceRequest = asyncHandler(async (req, res, next) => {
   const { property } = res.locals;
   const { userId: userOpaqueId, userType } = res.locals.user as TokenPayload;
@@ -249,7 +250,9 @@ export const getMaintenanceRequest = asyncHandler(async (req, res, next) => {
     },
     select: {
       ...maintenanceRequestSelect,
-      createdBy: true, // Include for tenant check
+      createdBy: true,
+      unitNumber: true, 
+      propertyId: true, 
     },
   });
 
@@ -257,9 +260,23 @@ export const getMaintenanceRequest = asyncHandler(async (req, res, next) => {
     return res.status(404).json({ error: "Maintenance request not found" });
   }
 
-  // Tenants can only view their own requests
-  if (userType === "tenant" && request.createdBy !== userId) {
-    return res.status(403).json({ error: "Access denied" });
+  // Tenants can view tickets they created OR tickets for their unit
+  if (userType === "tenant") {
+    const tenant = await prisma.tenant.findUnique({
+      where: { userId },
+      select: { unitNumber: true, propertyId: true }
+    });
+
+    // Check if tenant created this ticket OR if it's for their unit
+    const canView = 
+      request.createdBy === userId || // They created it
+      (tenant?.unitNumber && 
+       tenant.unitNumber === request.unitNumber && 
+       tenant.propertyId === request.propertyId); // Or it's for their unit
+
+    if (!canView) {
+      return res.status(403).json({ error: "Access denied" });
+    }
   }
 
   return res.status(200).json({
